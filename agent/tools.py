@@ -113,34 +113,44 @@ async def get_reimbursement_info(procedure: str, patient: dict) -> dict:
 # THRYVE API DOCS: https://docs.thryve.health
 # API reference: https://docs.thryve.health/further-resources/v5-api-reference
 #
-# Endpoints needed:
-#   GET daily data → "Get daily data" in docs
-#   GET epoch data → "Get epoch data" in docs
+# SANDBOX: ~10 user profiles with 1+ year of real health data
+#          (activity, sleep, vitals including heart rate)
+#          Data from mixed tracker sources (Fitbit, Garmin, Oura, etc.)
+#
+# TWO ENDPOINTS:
+#   1. Daily summaries → "Get daily data" in docs
+#   2. Intraday (epoch-level) data → "Get epoch data" in docs
+#
+# ANALYTICS MODULE: Thryve also provides standardised health insights
+#   and risk patterns on top of raw data. Check "Analytics Platform" in docs.
 #
 # Biomarker IDs we need:
 #   1000  = Steps (Daily, count)
 #   2000  = SleepDuration (Daily, minutes — excludes wake times)
 #   2001  = SleepInBedDuration (Daily, minutes — includes wake times)
-#   3000  = HeartRate (Daily, avg bpm OR Epoch for time-series)
+#   3000  = HeartRate (Daily avg bpm, or Epoch for time-series)
 #   3001  = HeartRateResting (Daily, avg bpm)
 #   1010  = BurnedCalories (Daily, kcal)
 #   1100  = ActivityDuration (Daily, minutes)
 #
 # Data source IDs (for "source" field):
-#   1 = Fitbit, 2 = Garmin, 5 = Apple Health, 6 = Samsung Health,
-#   8 = Withings, 18 = Oura, 42 = Whoop, 44 = Health Connect
+#   1 = Fitbit, 2 = Garmin, 3 = Polar, 5 = Apple Health,
+#   6 = Samsung Health, 8 = Withings, 18 = Oura, 42 = Whoop
 #
 # Auth: API key from Thryve dashboard (given at hackathon)
 #   → set THRYVE_API_KEY and THRYVE_APP_ID in .env
 #
 # Steps to integrate:
-#   1. Get API key from hackathon mentors
+#   1. Get API key + sandbox user IDs from hackathon mentors
 #   2. Check the "Get daily data" endpoint in the v5 API reference
 #   3. Fetch biomarkers 1000 (steps), 2000 (sleep), 3001 (resting HR)
-#      for the past 7 days for the user
+#      for the past 7 days for a sandbox user
 #   4. Transform into our format: { heart_rate{...}, sleep{...}, activity{...} }
 #   5. Compare last 7 days vs previous 30 days for trend computation
-#   6. If API doesn't work → keep mock data, demo is identical
+#   6. Optionally use the Analytics module for health insights / risk patterns
+#   7. Map sandbox user IDs to our patient profiles in patients.json
+#      (update thryve_user_id field for each patient)
+#   8. If API doesn't work → keep mock data, demo is identical
 #
 # The mock data below is medically realistic for each patient scenario.
 # ==========================================================================
