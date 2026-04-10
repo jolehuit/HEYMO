@@ -1,6 +1,101 @@
 # Task Distribution
 
-Grep all TODOs in the project:
+---
+
+## Étape 0 — Arrivée (9h00, tous ensemble, 30 min)
+
+### Pré-requis : un dev crée les comptes la veille
+
+Avant le hackathon, **un dev** doit avoir :
+1. Créé un compte LiveKit Cloud → [cloud.livekit.io](https://cloud.livekit.io) → récupéré `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`
+2. Créé une clé Mistral → [console.mistral.ai](https://console.mistral.ai) → récupéré `MISTRAL_API_KEY`
+3. Créé une clé Linkup → [linkup.so](https://linkup.so) → récupéré `LINKUP_API_KEY`
+4. Installé le CLI LiveKit → `brew install livekit/tap/lk`
+5. Partagé ces clés avec l'équipe (Slack, Discord, papier — pas en clair dans le repo)
+
+### 9h00 — Clone + install (chacun sur son laptop, 10 min)
+
+```bash
+git clone <repo-url>
+cd alan-care-call
+```
+
+**Dev 1 + Dev 2** (agent Python) :
+```bash
+cd agent/
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+# Remplir .env avec les clés partagées : MISTRAL_API_KEY, LIVEKIT_*, LINKUP_API_KEY
+```
+
+**Dev 3** (frontend) :
+```bash
+cd frontend/
+pnpm install
+cp .env.example .env.local
+# Remplir .env.local avec : LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET
+```
+
+**Non-tech** : ouvrir `agent/playbook.py` dans un éditeur de texte.
+
+### 9h15 — Premier test (vérifier que ça tourne, 15 min)
+
+**Dev 1** teste l'agent :
+```bash
+cd agent/
+python agent.py console
+# → Parler dans le micro. L'agent répond ? La voix est bien ?
+```
+
+**Dev 3** teste le frontend :
+```bash
+cd frontend/
+pnpm dev
+# → Ouvrir http://localhost:3000. Les cartes patients s'affichent ?
+```
+
+**Dev 2** teste les outils :
+```bash
+cd agent/
+python -c "from tools import load_patient; print(load_patient('sophie_martin')['name'])"
+# → Affiche "Sophie Martin" ?
+```
+
+### 9h30 — Alignement rapide (15 min, tous ensemble)
+
+1. **Ça marche ?** Tour de table : agent parle ✅/❌, frontend charge ✅/❌, tools OK ✅/❌
+2. **Blocker ?** Si quelque chose ne marche pas, on debug ensemble maintenant
+3. **Lire TASKS.md** : chacun lit SA section, pose ses questions
+4. **Clés Thryve** : Non-tech va les chercher auprès des mentors et les donne à Dev 2
+5. **Go** : chacun part sur ses tâches
+
+### Après 9h30 — chacun bosse sur ses TODOs
+
+```bash
+# Dev 1 : voir ses tâches
+grep -rn "TODO(Dev1)" agent/
+
+# Dev 2 : voir ses tâches
+grep -rn "TODO(Dev2)" agent/
+
+# Dev 3 : voir ses tâches
+grep -rn "TODO(Dev3)" frontend/
+
+# Non-tech : ouvrir agent/playbook.py, éditer le texte PLAYBOOK
+```
+
+### Règles Git
+
+- **Chacun travaille sur ses fichiers** (voir ownership dans ARCHITECTURE.md)
+- **Commit souvent** avec des messages clairs
+- **Dev 1 + Dev 2 partagent `agent/`** → se coordonner pour éviter les conflits sur `agent.py`
+- **`frontend/lib/types.ts` est partagé** → prévenir les autres si on change un champ
+
+---
+
+## Grep tous les TODOs
+
 ```bash
 grep -rn "TODO" agent/ frontend/ --include="*.py" --include="*.ts" --include="*.tsx"
 ```
