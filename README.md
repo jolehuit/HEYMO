@@ -12,7 +12,7 @@ Voice AI agent that calls Alan members for post-consultation health follow-up.
 
 - Python 3.12+, Node.js 20+, pnpm 9+
 - LiveKit Cloud account → [cloud.livekit.io](https://cloud.livekit.io)
-- LiveKit CLI → `brew install livekit/tap/lk`
+- LiveKit CLI → `brew install livekit-cli`
 - Mistral API key → [console.mistral.ai](https://console.mistral.ai)
 
 ### Agent (Python)

@@ -10,7 +10,7 @@ Avant le hackathon, **un dev** doit avoir :
 1. Créé un compte LiveKit Cloud → [cloud.livekit.io](https://cloud.livekit.io) → récupéré `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`
 2. Créé une clé Mistral → [console.mistral.ai](https://console.mistral.ai) → récupéré `MISTRAL_API_KEY`
 3. Créé une clé Linkup → [linkup.so](https://linkup.so) → récupéré `LINKUP_API_KEY`
-4. Installé le CLI LiveKit → `brew install livekit/tap/lk`
+4. Installé le CLI LiveKit → `brew install livekit-cli`
 5. Partagé ces clés avec l'équipe (Slack, Discord, papier — pas en clair dans le repo)
 
 ### 9h00 — Clone + install (chacun sur son laptop, 10 min)
