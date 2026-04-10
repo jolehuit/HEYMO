@@ -151,12 +151,10 @@ function ActiveCall({
   const [alerts, setAlerts] = useState<LiveAlert[]>([]);
 
   // Listen for live updates (alerts) from the agent
-  const { messages: liveUpdates } = useTextStream({ topic: "live-updates" });
+  const { textStreams: liveUpdates } = useTextStream("live-updates");
 
   // Listen for the post-call summary
-  const { messages: summaryMessages } = useTextStream({
-    topic: "call-summary",
-  });
+  const { textStreams: summaryStreams } = useTextStream("call-summary");
 
   // Process live alerts
   useEffect(() => {
@@ -175,34 +173,40 @@ function ActiveCall({
 
   // Process summary when received
   useEffect(() => {
-    if (summaryMessages.length > 0) {
+    if (summaryStreams.length > 0) {
       try {
-        const parsed = JSON.parse(summaryMessages[0].text) as CallSummary;
+        const parsed = JSON.parse(summaryStreams[0].text) as CallSummary;
         onSummaryReceived(parsed);
       } catch {
         // ignore parse errors
       }
     }
-  }, [summaryMessages, onSummaryReceived]);
+  }, [summaryStreams, onSummaryReceived]);
 
   // Agent state display
-  const stateLabel = {
+  const stateLabel: Record<string, string> = {
     disconnected: "Disconnected",
     connecting: "Connecting...",
+    "pre-connect-buffering": "Preparing...",
+    failed: "Connection failed",
     initializing: "Agent waking up...",
+    idle: "Ready",
     listening: "Listening",
     thinking: "Thinking...",
     speaking: "Speaking",
-  }[state] || state;
+  };
 
-  const stateColor = {
+  const stateColor: Record<string, string> = {
     disconnected: "bg-slate-500",
     connecting: "bg-yellow-500",
+    "pre-connect-buffering": "bg-yellow-500",
+    failed: "bg-red-500",
     initializing: "bg-yellow-500",
+    idle: "bg-green-400",
     listening: "bg-green-500",
     thinking: "bg-blue-500",
     speaking: "bg-purple-500",
-  }[state] || "bg-slate-500";
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -219,8 +223,8 @@ function ActiveCall({
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <div className={`w-3 h-3 rounded-full ${stateColor} animate-pulse`} />
-            <span className="text-sm text-slate-300">{stateLabel}</span>
+            <div className={`w-3 h-3 rounded-full ${stateColor[state] || "bg-slate-500"} animate-pulse`} />
+            <span className="text-sm text-slate-300">{stateLabel[state] || state}</span>
           </div>
           <DisconnectButton className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-sm font-semibold transition-colors">
             End Call
