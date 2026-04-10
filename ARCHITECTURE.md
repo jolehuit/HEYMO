@@ -287,25 +287,59 @@ frontend/
 
 ---
 
-## Stack technique vérifiée
+## Stack technique — audit complet (10 avril 2026)
 
-### Agent Python (vérifié via `pip install` + import test)
+### Agent Python
 
-| Package | Version | Vérifié |
-|---------|---------|---------|
-| livekit-agents | 1.5.2 | ✅ imports OK |
-| livekit-plugins-mistralai | 1.5.2 | ✅ STT, TTS, LLM OK |
-| livekit-plugins-silero | 1.5.2 | ✅ VAD.load() OK |
-| livekit-plugins-turn-detector | 1.5.2 | ✅ MultilingualModel OK |
-| linkup-sdk | 0.13.0 | ✅ installé |
+Toutes les versions sont les dernières disponibles sur PyPI. Vérifié via `pip install` + import test.
 
-### Frontend (vérifié via npm registry)
+| Package | Version | Date release | Dernière sur PyPI ? | Vérifié |
+|---------|---------|-------------|--------------------|---------| 
+| livekit-agents | 1.5.2 | 8 avril 2026 | ✅ Oui | imports OK |
+| livekit-plugins-mistralai | 1.5.2 | 8 avril 2026 | ✅ Oui | STT, TTS, LLM exportés |
+| livekit-plugins-silero | 1.5.2 | 8 avril 2026 | ✅ Oui | VAD.load() OK |
+| livekit-plugins-turn-detector | 1.5.2 | 8 avril 2026 | ✅ Oui | MultilingualModel OK |
+| linkup-sdk | 0.13.0 | 2 mars 2026 | ✅ Oui | async_search() OK |
+| mistralai | 2.3.2 | 10 avril 2026 | ✅ Oui (sorti aujourd'hui) | requis par plugin |
 
-| Package | Version | Peer deps | Compatible |
-|---------|---------|-----------|------------|
-| next | 15.5.15 | — | ✅ CVE-2026-23869 fixé |
-| @livekit/components-react | ^2.9.20 | react >=18, tslib ^2.6.2 | ✅ |
-| livekit-client | ^2.17.2 | — | ✅ |
-| livekit-server-sdk | ^2.13.3 | node >=18 | ✅ |
-| react | ^19.0.0 | — | ✅ (>= 18 requis par LiveKit) |
-| tslib | ^2.6.2 | — | ✅ peer dep de LiveKit React |
+### Modèles Mistral (vérifiés depuis le source code du plugin + docs Mistral)
+
+| Type | ID dans agent.py | Existe ? | Détails |
+|------|-----------------|----------|---------|
+| STT | `voxtral-mini-transcribe-realtime-2602` | ✅ Oui | Streaming realtime, 4B params, <500ms latence |
+| LLM | `mistral-small-latest` | ✅ Oui | → Mistral Small 4 (119B MoE), function calling natif |
+| TTS voice | `en_paul_confident` | ✅ Oui | 1 des 30 voix (4 personas × émotions) |
+| TTS model | `voxtral-mini-tts-latest` (défaut) | ✅ Oui | Auto-sélectionné par le plugin |
+
+### Frontend npm — aligné sur le playground officiel LiveKit
+
+Versions mises à jour pour correspondre au [agents-playground](https://github.com/livekit/agents-playground) officiel.
+
+| Package | Notre version | Dernière stable | Playground officiel | Peer deps | Compatible |
+|---------|-------------|----------------|--------------------|-----------|-----------| 
+| next | 15.5.15 (pinned) | 16.2.3 / 15.5.15 | ^15.5.12 | react ^19 | ✅ CVE-2026-23869 fixé |
+| @livekit/components-react | ^2.9.20 | 2.9.20 | ^2.9.20 | react >=18, livekit-client ^2.17.2, tslib ^2.6.2 | ✅ |
+| @livekit/components-styles | ^1.2.0 | 1.2.0 | ^1.2.0 | aucun | ✅ |
+| livekit-client | ^2.18.1 | 2.18.1 | ^2.18.0 | @types/dom-mediacapture-record ^1 (opt) | ✅ |
+| livekit-server-sdk | ^2.15.1 | 2.15.1 | ^2.14.2 | node >=18 | ✅ |
+| react / react-dom | ^19.0.0 | 19.2.5 | ^19.0.0 | — | ✅ |
+| tslib | ^2.6.2 | 2.8.1 | — | — | ✅ peer dep LiveKit |
+| tailwindcss | ^4 | 4.2.2 | ^3.4 (eux) | — | ✅ (pas de conflit) |
+
+### Hooks et composants React (vérifiés via `require()` sur le package installé)
+
+| Export | Existe ? | Status | API |
+|--------|---------|--------|-----|
+| `useVoiceAssistant()` | ✅ function | @beta | → `{ state, audioTrack, agentTranscriptions }` |
+| `useTextStream(topic)` | ✅ function | @beta | → `{ textStreams: TextStreamData[] }` |
+| `BarVisualizer` | ✅ object | @beta | Props: `state`, `trackRef`, `barCount` |
+| `DisconnectButton` | ✅ object | @public | Props: standard button + `stopTracks` |
+| `RoomAudioRenderer` | ✅ function | — | Renders agent audio |
+| `LiveKitRoom` | ✅ object | — | Props: `serverUrl`, `token`, `connect`, `audio` |
+
+### Points d'attention
+
+1. **`useTextStream` et `BarVisualizer` sont `@beta`** — API stable en pratique (utilisée par LiveKit eux-mêmes), mais signature pourrait changer
+2. **`mistralai` 2.3.2 sorti aujourd'hui** — développement actif (3 releases en 1 semaine). Si bug → pin `mistralai==2.3.2` dans requirements.txt
+3. **Le plugin turn-detector exclut `transformers` 4.57.2 et 4.57.3** — versions buggées. Pas un problème tant qu'on ne les force pas
+4. **Le STT realtime auto-charge Silero VAD** si aucun VAD n'est fourni. On en fournit un via prewarm → pas de conflit
