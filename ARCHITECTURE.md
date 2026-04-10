@@ -311,20 +311,30 @@ Toutes les versions sont les dernières disponibles sur PyPI. Vérifié via `pip
 | TTS voice | `en_paul_confident` | ✅ Oui | 1 des 30 voix (4 personas × émotions) |
 | TTS model | `voxtral-mini-tts-latest` (défaut) | ✅ Oui | Auto-sélectionné par le plugin |
 
-### Frontend npm — aligné sur le playground officiel LiveKit
+### Frontend npm
 
-Versions mises à jour pour correspondre au [agents-playground](https://github.com/livekit/agents-playground) officiel.
+Versions vérifiées contre le registre npm et les peer dependencies de chaque package.
+Pour le choix des versions, on a utilisé comme référence le [agents-playground](https://github.com/livekit/agents-playground)
+de LiveKit (leur app de test interne). **On n'utilise pas le playground dans notre projet** — c'est juste
+une source fiable pour savoir quelles combinaisons de versions LiveKit teste en interne.
 
-| Package | Notre version | Dernière stable | Playground officiel | Peer deps | Compatible |
-|---------|-------------|----------------|--------------------|-----------|-----------| 
-| next | 15.5.15 (pinned) | 16.2.3 / 15.5.15 | ^15.5.12 | react ^19 | ✅ CVE-2026-23869 fixé |
-| @livekit/components-react | ^2.9.20 | 2.9.20 | ^2.9.20 | react >=18, livekit-client ^2.17.2, tslib ^2.6.2 | ✅ |
-| @livekit/components-styles | ^1.2.0 | 1.2.0 | ^1.2.0 | aucun | ✅ |
-| livekit-client | ^2.18.1 | 2.18.1 | ^2.18.0 | @types/dom-mediacapture-record ^1 (opt) | ✅ |
-| livekit-server-sdk | ^2.15.1 | 2.15.1 | ^2.14.2 | node >=18 | ✅ |
-| react / react-dom | ^19.0.0 | 19.2.5 | ^19.0.0 | — | ✅ |
-| tslib | ^2.6.2 | 2.8.1 | — | — | ✅ peer dep LiveKit |
-| tailwindcss | ^4 | 4.2.2 | ^3.4 (eux) | — | ✅ (pas de conflit) |
+| Package | Notre version | Dernière stable | Peer deps | OK ? |
+|---------|--------------|----------------|-----------|------|
+| next | 15.5.15 (pinned) | 15.5.15 (16.2.3 = major suivant) | react ^19 | ✅ CVE-2026-23869 fixé |
+| @livekit/components-react | ^2.9.20 | 2.9.20 | react >=18, livekit-client ^2.17.2, tslib ^2.6.2 | ✅ |
+| @livekit/components-styles | ^1.2.0 | 1.2.0 | aucun | ✅ |
+| livekit-client | ^2.18.1 | 2.18.1 | aucun requis | ✅ |
+| livekit-server-sdk | ^2.15.1 | 2.15.1 | node >=18 | ✅ |
+| react / react-dom | ^19.0.0 | 19.2.5 | — | ✅ |
+| tslib | ^2.6.2 | 2.8.1 | — | ✅ peer dep LiveKit React |
+| tailwindcss | ^4 | 4.2.2 | — | ✅ |
+
+**Pourquoi Next.js 15 et pas 16 ?** Next 16 est sorti récemment (16.2.3). La migration serait possible
+(notre code n'utilise aucune API dépréciée), mais les packages LiveKit n'ont pas encore été testés sur 16
+par l'équipe LiveKit. Pour un hackathon, on reste sur la version stable testée.
+
+**Aucun package LiveKit ne déclare de peer dependency sur Next.js.** Ce sont des composants React purs.
+Ils fonctionnent avec n'importe quel framework React (Next, Vite, Remix, etc.).
 
 ### Hooks et composants React (vérifiés via `require()` sur le package installé)
 
