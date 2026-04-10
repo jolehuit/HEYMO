@@ -122,8 +122,13 @@ class AlanHealthAgent(Agent):
         logger.warning(f"ALERT [{level}]: {reason} for {self._patient['name']}")
 
         # TODO(Dev1): Send live alert to frontend via text stream
-        # Use: ctx.room.local_participant.send_text(json, topic="live-updates")
-        # Needs access to the room — see how to pass it through RunContext
+        # The room is accessible via: context.session.room_io.room
+        # Example:
+        #   room = context.session.room_io.room
+        #   await room.local_participant.send_text(
+        #       json.dumps({"type": "alert", "level": level, "reason": reason}),
+        #       topic="live-updates",
+        #   )
 
         return f"Alert flagged as {level}: {reason}"
 
@@ -236,6 +241,10 @@ async def entrypoint(ctx: JobContext):
     # --- Configure voice pipeline ---
     # TODO(Dev1): Test voice quality. If en_paul_confident sounds bad,
     # try: en_paul_neutral, gb_jane_confident, gb_oliver_confident
+    # Last resort: switch to ElevenLabs TTS (1 line change):
+    #   pip install "livekit-agents[elevenlabs]"
+    #   from livekit.plugins import elevenlabs
+    #   tts=elevenlabs.TTS(voice="...")  # redeem ElevenLabs Creator via Discord first
     session = AgentSession(
         stt=mistralai.STT(model="voxtral-mini-transcribe-realtime-2602"),
         llm=mistralai.LLM(model="mistral-small-latest"),

@@ -35,7 +35,7 @@
 ### 9h00 — Clone + install (chacun sur son laptop, 10 min)
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/jolehuit/alan-care-call.git
 cd alan-care-call
 ```
 
@@ -177,7 +177,8 @@ build_system_prompt(patient, wearable_data) -> str  # returns system prompt
 ### Setup (9h00)
 ```bash
 cd agent/
-source .venv/bin/activate  # reuse Dev 1's venv
+python -m venv .venv && source .venv/bin/activate  # each dev creates their own venv
+pip install -r requirements.txt
 cp .env.example .env       # fill in LINKUP_API_KEY (+ THRYVE when available)
 python -c "from tools import load_patient; print(load_patient('sophie_martin')['name'])"
 ```

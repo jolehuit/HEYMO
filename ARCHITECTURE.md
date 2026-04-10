@@ -174,10 +174,10 @@ Frontend déconnecte du room LiveKit
 LiveKit émet "participant_disconnected" sur le room
         │
         ▼
-Agent reçoit l'événement (agent.py ligne 250)
+Agent reçoit l'événement (agent.py → on_disconnect)
         │
         ▼
-Agent génère le summary JSON (agent.py ligne 165)
+Agent génère le summary JSON (agent.py → generate_summary)
         │
         ▼
 Agent envoie via: room.local_participant.send_text(

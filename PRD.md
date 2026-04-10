@@ -164,7 +164,7 @@ interface LiveAlert {
 | Cold start 10-20s | Medium | Loading animation in frontend + warm-up call before demo |
 | Voxtral TTS voice quality unknown | Medium | Test tonight, 28 voices available as alternatives |
 | Linkup may not return structured reimbursement data | Medium | Hardcoded fallback with 12 common procedures |
-| Thryve API docs unavailable until Saturday morning | Low | Hardcoded fallback data for all 3 patients |
+| Thryve sandbox user mapping unknown until hackathon | Low | Hardcoded fallback data for all 3 patients; API docs available at docs.thryve.health |
 | `useTextStream` is @beta | Low | Verified it exists and works, used by LiveKit themselves |
 | Network issues at hackathon | Low | 4G hotspot backup |
 
