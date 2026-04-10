@@ -108,14 +108,39 @@ async def get_reimbursement_info(procedure: str, patient: dict) -> dict:
 # Returns:   { source, period, heart_rate{...}, sleep{...}, activity{...},
 #              risk_patterns[] }
 #
-# TODO(Dev2): Replace mock with Thryve API call.
-# Thryve credentials and API docs arrive Saturday morning at the hackathon.
-# When you get them:
-#   1. Read the Thryve API docs for the correct endpoint + auth
-#   2. Fetch heart_rate, sleep, activity data for the past 7 days
-#   3. Transform the Thryve response into the format below
-#   4. Compute trends by comparing recent vs baseline
-#   5. If the API doesn't work → keep the mock, demo is identical
+# TODO(Dev2): Replace mock with real Thryve API call.
+#
+# THRYVE API DOCS: https://docs.thryve.health
+# API reference: https://docs.thryve.health/further-resources/v5-api-reference
+#
+# Endpoints needed:
+#   GET daily data → "Get daily data" in docs
+#   GET epoch data → "Get epoch data" in docs
+#
+# Biomarker IDs we need:
+#   1000  = Steps (Daily, count)
+#   2000  = SleepDuration (Daily, minutes — excludes wake times)
+#   2001  = SleepInBedDuration (Daily, minutes — includes wake times)
+#   3000  = HeartRate (Daily, avg bpm OR Epoch for time-series)
+#   3001  = HeartRateResting (Daily, avg bpm)
+#   1010  = BurnedCalories (Daily, kcal)
+#   1100  = ActivityDuration (Daily, minutes)
+#
+# Data source IDs (for "source" field):
+#   1 = Fitbit, 2 = Garmin, 5 = Apple Health, 6 = Samsung Health,
+#   8 = Withings, 18 = Oura, 42 = Whoop, 44 = Health Connect
+#
+# Auth: API key from Thryve dashboard (given at hackathon)
+#   → set THRYVE_API_KEY and THRYVE_APP_ID in .env
+#
+# Steps to integrate:
+#   1. Get API key from hackathon mentors
+#   2. Check the "Get daily data" endpoint in the v5 API reference
+#   3. Fetch biomarkers 1000 (steps), 2000 (sleep), 3001 (resting HR)
+#      for the past 7 days for the user
+#   4. Transform into our format: { heart_rate{...}, sleep{...}, activity{...} }
+#   5. Compare last 7 days vs previous 30 days for trend computation
+#   6. If API doesn't work → keep mock data, demo is identical
 #
 # The mock data below is medically realistic for each patient scenario.
 # ==========================================================================

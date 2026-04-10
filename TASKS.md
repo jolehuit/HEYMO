@@ -4,14 +4,33 @@
 
 ## Étape 0 — Arrivée (9h00, tous ensemble, 30 min)
 
-### Pré-requis : un dev crée les comptes la veille
+### Pré-requis : comptes et crédits à créer/redeem
 
-Avant le hackathon, **un dev** doit avoir :
-1. Créé un compte LiveKit Cloud → [cloud.livekit.io](https://cloud.livekit.io) → récupéré `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`
-2. Créé une clé Mistral → [console.mistral.ai](https://console.mistral.ai) → récupéré `MISTRAL_API_KEY`
-3. Créé une clé Linkup → [linkup.so](https://linkup.so) → récupéré `LINKUP_API_KEY`
-4. Installé le CLI LiveKit → `brew install livekit-cli`
-5. Partagé ces clés avec l'équipe (Slack, Discord, papier — pas en clair dans le repo)
+**Comptes à créer (la veille ou le matin) :**
+
+| Service | URL | Ce qu'on récupère | Qui |
+|---------|-----|-------------------|-----|
+| LiveKit Cloud | [cloud.livekit.io](https://cloud.livekit.io) | `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | Un dev |
+| Mistral | [console.mistral.ai](https://console.mistral.ai) | `MISTRAL_API_KEY` | Un dev |
+| Linkup | [linkup.so](https://linkup.so) | `LINKUP_API_KEY` | Un dev |
+
+**Crédits à redeem au hackathon :**
+
+| Partenaire | Comment | Détails |
+|-----------|---------|---------|
+| Mistral | Coupons $10 distribués sur place | En plus du free tier |
+| ElevenLabs | Rejoindre Discord → `#🎟️│coupon-codes` → "Start Redemption" | 1 mois Creator Tier (backup TTS si Voxtral sonne mal) |
+| Nebius | [Lien de claim](https://nebius.com) → $50 crédits TokenFactory | Pas utilisé dans notre stack mais bon à avoir |
+
+**Credentials récupérées sur place :**
+
+| Service | Quand | Qui va les chercher |
+|---------|-------|-------------------|
+| Thryve sandbox | Samedi matin, auprès des mentors | Non-tech → donne à Dev 2 |
+
+**À installer (la veille) :**
+1. LiveKit CLI → `brew install livekit-cli`
+2. Partager les clés avec l'équipe (Slack, Discord — pas dans le repo)
 
 ### 9h00 — Clone + install (chacun sur son laptop, 10 min)
 
