@@ -22,6 +22,7 @@ from livekit.agents import (
     Agent,
     AgentServer,
     AgentSession,
+    JobContext,
     JobProcess,
     RoomInputOptions,
     RunContext,
@@ -72,14 +73,14 @@ class AlanHealthAgent(Agent):
     # FUNCTION TOOLS — called by the LLM during conversation
     # ------------------------------------------------------------------
 
-    @function_tool()
+    @function_tool
     async def get_patient_context(self, context: RunContext) -> str:
         """Get the current patient's full profile including medical history,
         medications, and upcoming appointments. Use this when you need to
         reference specific details about the patient."""
         return json.dumps(self._patient, indent=2)
 
-    @function_tool()
+    @function_tool
     async def get_reimbursement_info(
         self,
         context: RunContext,
@@ -112,14 +113,14 @@ class AlanHealthAgent(Agent):
         self._reimbursement_discussed = result if isinstance(result, dict) and "procedure" in result else result.get("structured_data", result)
         return json.dumps(result, indent=2)
 
-    @function_tool()
+    @function_tool
     async def get_wearable_insights(self, context: RunContext) -> str:
         """Get the patient's wearable health data from the past 7 days.
         Includes heart rate, sleep, activity levels, and detected risk patterns.
         Use this to reference specific health metrics during the conversation."""
         return json.dumps(self._wearable_data, indent=2)
 
-    @function_tool()
+    @function_tool
     async def flag_alert(
         self,
         context: RunContext,
@@ -151,7 +152,7 @@ class AlanHealthAgent(Agent):
             pass  # Room may not be available yet
         return f"Alert flagged as {level}: {reason}"
 
-    @function_tool()
+    @function_tool
     async def schedule_followup(
         self,
         context: RunContext,
@@ -175,7 +176,7 @@ class AlanHealthAgent(Agent):
         self._actions.append(action)
         return f"Follow-up scheduled for {scheduled_date}: {description}"
 
-    @function_tool()
+    @function_tool
     async def send_sms_reminder(
         self,
         context: RunContext,
@@ -275,7 +276,7 @@ server.setup_fnc = prewarm
 
 
 @server.rtc_session()
-async def entrypoint(ctx):
+async def entrypoint(ctx: JobContext):
     """Main entrypoint — called when a participant joins a LiveKit room."""
     await ctx.connect()
 
@@ -307,24 +308,33 @@ async def entrypoint(ctx):
         turn_detection=MultilingualModel(),
     )
 
-    # Handle participant disconnect → generate and send summary
+    # Track whether summary has been sent
+    summary_sent = False
+
+    async def send_summary():
+        nonlocal summary_sent
+        if summary_sent:
+            return
+        summary_sent = True
+        logger.info("Generating post-call summary...")
+        try:
+            summary = await generate_summary(agent, session)
+            await ctx.room.local_participant.send_text(
+                json.dumps(summary),
+                topic="call-summary",
+            )
+            logger.info(f"Summary sent for {patient['name']}")
+        except Exception as e:
+            logger.error(f"Error generating summary: {e}")
+
+    # Send summary when participant disconnects (clicks "End Call")
     @ctx.room.on("participant_disconnected")
-    def on_disconnect(participant):
+    def on_disconnect(disconnected_participant):
         import asyncio
+        asyncio.ensure_future(send_summary())
 
-        async def _send_summary():
-            logger.info("Participant disconnected, generating summary...")
-            try:
-                summary = await generate_summary(agent, session)
-                await ctx.room.local_participant.send_text(
-                    json.dumps(summary),
-                    topic="call-summary",
-                )
-                logger.info(f"Summary sent for {patient['name']}")
-            except Exception as e:
-                logger.error(f"Error generating summary: {e}")
-
-        asyncio.ensure_future(_send_summary())
+    # Also send summary on session shutdown (safety net)
+    ctx.add_shutdown_callback(lambda: send_summary())
 
     # Start the agent session
     await session.start(
