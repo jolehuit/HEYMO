@@ -1,8 +1,18 @@
 /**
- * Call interface — LiveKit voice agent UI with real-time transcription.
- * Handles connection, audio visualization, and live transcription display.
+ * Call interface — LiveKit voice agent UI (BOILERPLATE)
  *
  * Owner: Dev 3
+ *
+ * This component:
+ * 1. Fetches a token from /api/token (with patient_id)
+ * 2. Connects to a LiveKit room
+ * 3. Shows audio visualizer + agent state + live transcription
+ * 4. Listens for text streams from the agent (alerts + summary)
+ * 5. Shows Dashboard when call ends
+ *
+ * TODO(Dev3): Polish the call UI — better visualizer, better state display.
+ * TODO(Dev3): Handle edge cases — connection errors, agent timeout, etc.
+ * TODO(Dev3): Add cold start UX — animation while agent wakes up (~10-20s).
  */
 
 "use client";
@@ -43,41 +53,29 @@ export default function CallInterface({ patient, onBack }: CallInterfaceProps) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ patientId: patient.id }),
         });
-
-        if (!response.ok) {
-          throw new Error("Failed to get token");
-        }
-
+        if (!response.ok) throw new Error("Failed to get token");
         const data = await response.json();
         setToken(data.token);
         setUrl(data.url);
         setIsConnecting(false);
-      } catch (err) {
+      } catch {
         setError("Failed to connect. Check your LiveKit configuration.");
         setIsConnecting(false);
       }
     }
-
     fetchToken();
   }, [patient.id]);
 
-  const handleDisconnected = useCallback(() => {
-    setCallEnded(true);
-  }, []);
+  const handleDisconnected = useCallback(() => setCallEnded(true), []);
+  const handleSummaryReceived = useCallback((data: CallSummary) => setSummary(data), []);
 
-  const handleSummaryReceived = useCallback((data: CallSummary) => {
-    setSummary(data);
-  }, []);
-
+  // --- Error state ---
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-400 text-xl mb-4">{error}</p>
-          <button
-            onClick={onBack}
-            className="px-6 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
-          >
+          <button onClick={onBack} className="px-6 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg">
             Back to patient selection
           </button>
         </div>
@@ -85,34 +83,26 @@ export default function CallInterface({ patient, onBack }: CallInterfaceProps) {
     );
   }
 
+  // --- Loading state ---
+  // TODO(Dev3): Make this a nice animation for the cold start wait
   if (isConnecting || !token || !url) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-pulse mb-6">
-            <div className="w-24 h-24 rounded-full bg-purple-600/30 mx-auto flex items-center justify-center">
-              <div className="w-16 h-16 rounded-full bg-purple-600/50 animate-ping" />
-            </div>
-          </div>
-          <h2 className="text-2xl font-bold mb-2">
-            Connecting to your health agent...
-          </h2>
-          <p className="text-slate-400">
-            Setting up a secure voice connection for {patient.name}
-          </p>
-          <p className="text-slate-500 text-sm mt-4">
-            This may take 10-15 seconds on first connection
-          </p>
+          <div className="w-16 h-16 rounded-full bg-purple-600/50 animate-ping mx-auto mb-6" />
+          <h2 className="text-2xl font-bold mb-2">Connecting to your health agent...</h2>
+          <p className="text-slate-400">This may take 10-15 seconds on first connection</p>
         </div>
       </div>
     );
   }
 
-  // Show dashboard after call ends
+  // --- Dashboard after call ends ---
   if (callEnded && summary) {
     return <Dashboard summary={summary} onBack={onBack} />;
   }
 
+  // --- Active call ---
   return (
     <LiveKitRoom
       serverUrl={url}
@@ -122,189 +112,112 @@ export default function CallInterface({ patient, onBack }: CallInterfaceProps) {
       onDisconnected={handleDisconnected}
       className="min-h-screen"
     >
-      <ActiveCall
-        patient={patient}
-        onBack={onBack}
-        callEnded={callEnded}
-        onSummaryReceived={handleSummaryReceived}
-      />
+      <ActiveCall patient={patient} callEnded={callEnded} onSummaryReceived={handleSummaryReceived} />
       <RoomAudioRenderer />
     </LiveKitRoom>
   );
 }
 
 /**
- * Active call view — shown while connected to the LiveKit room.
+ * Active call view — rendered inside the LiveKitRoom context.
  */
 function ActiveCall({
   patient,
-  onBack,
   callEnded,
   onSummaryReceived,
 }: {
   patient: PatientProfile;
-  onBack: () => void;
   callEnded: boolean;
   onSummaryReceived: (data: CallSummary) => void;
 }) {
   const { state, audioTrack, agentTranscriptions } = useVoiceAssistant();
   const [alerts, setAlerts] = useState<LiveAlert[]>([]);
 
-  // Listen for live updates (alerts) from the agent
+  // --- Text streams from the agent ---
   const { textStreams: liveUpdates } = useTextStream("live-updates");
-
-  // Listen for the post-call summary
   const { textStreams: summaryStreams } = useTextStream("call-summary");
 
   // Process live alerts
   useEffect(() => {
     if (liveUpdates.length > 0) {
-      const latest = liveUpdates[liveUpdates.length - 1];
       try {
-        const parsed = JSON.parse(latest.text) as LiveAlert;
-        if (parsed.type === "alert") {
-          setAlerts((prev) => [...prev, parsed]);
-        }
-      } catch {
-        // ignore parse errors
-      }
+        const parsed = JSON.parse(liveUpdates[liveUpdates.length - 1].text) as LiveAlert;
+        if (parsed.type === "alert") setAlerts((prev) => [...prev, parsed]);
+      } catch { /* ignore */ }
     }
   }, [liveUpdates]);
 
-  // Process summary when received
+  // Process summary
   useEffect(() => {
     if (summaryStreams.length > 0) {
       try {
-        const parsed = JSON.parse(summaryStreams[0].text) as CallSummary;
-        onSummaryReceived(parsed);
-      } catch {
-        // ignore parse errors
-      }
+        onSummaryReceived(JSON.parse(summaryStreams[0].text) as CallSummary);
+      } catch { /* ignore */ }
     }
   }, [summaryStreams, onSummaryReceived]);
 
-  // Agent state display
-  const stateLabel: Record<string, string> = {
-    disconnected: "Disconnected",
-    connecting: "Connecting...",
-    "pre-connect-buffering": "Preparing...",
-    failed: "Connection failed",
-    initializing: "Agent waking up...",
-    idle: "Ready",
-    listening: "Listening",
-    thinking: "Thinking...",
-    speaking: "Speaking",
-  };
-
-  const stateColor: Record<string, string> = {
-    disconnected: "bg-slate-500",
-    connecting: "bg-yellow-500",
-    "pre-connect-buffering": "bg-yellow-500",
-    failed: "bg-red-500",
-    initializing: "bg-yellow-500",
-    idle: "bg-green-400",
-    listening: "bg-green-500",
-    thinking: "bg-blue-500",
-    speaking: "bg-purple-500",
+  // --- Agent state labels ---
+  // TODO(Dev3): Make the state display more visual — icons, colors, transitions
+  const stateLabels: Record<string, string> = {
+    disconnected: "Disconnected", connecting: "Connecting...",
+    initializing: "Agent waking up...", idle: "Ready",
+    listening: "Listening", thinking: "Thinking...", speaking: "Speaking",
   };
 
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between p-6 border-b border-slate-700">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <span className="text-2xl">{patient.emoji}</span>
           <div>
             <h1 className="text-xl font-bold">{patient.name}</h1>
-            <p className="text-sm text-slate-400">
-              {patient.eventDescription}
-            </p>
+            <p className="text-sm text-slate-400">{patient.eventDescription}</p>
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div className={`w-3 h-3 rounded-full ${stateColor[state] || "bg-slate-500"} animate-pulse`} />
-            <span className="text-sm text-slate-300">{stateLabel[state] || state}</span>
-          </div>
-          <DisconnectButton className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-sm font-semibold transition-colors">
+          <span className="text-sm text-slate-300">{stateLabels[state] || state}</span>
+          <DisconnectButton className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-sm font-semibold">
             End Call
           </DisconnectButton>
         </div>
       </div>
 
-      {/* Main content */}
+      {/* Audio visualizer */}
       <div className="flex-1 flex flex-col items-center justify-center p-8">
-        {/* Audio visualizer */}
         <div className="w-full max-w-md h-48 mb-8">
           {audioTrack ? (
-            <BarVisualizer
-              state={state}
-              trackRef={audioTrack}
-              barCount={24}
-              className="w-full h-full"
-            />
+            <BarVisualizer state={state} trackRef={audioTrack} barCount={24} className="w-full h-full" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <div className="text-slate-500">
-                {state === "connecting" || state === "initializing"
-                  ? "Waiting for agent..."
-                  : "No audio"}
-              </div>
+            <div className="w-full h-full flex items-center justify-center text-slate-500">
+              Waiting for agent...
             </div>
           )}
         </div>
 
-        {/* Alerts */}
-        {alerts.length > 0 && (
-          <div className="w-full max-w-lg mb-6 space-y-2">
-            {alerts.map((alert, i) => (
-              <div
-                key={i}
-                className={`px-4 py-3 rounded-lg border ${
-                  alert.level === "red"
-                    ? "bg-red-900/30 border-red-700 text-red-300"
-                    : "bg-orange-900/30 border-orange-700 text-orange-300"
-                }`}
-              >
-                <span className="font-semibold uppercase text-xs">
-                  {alert.level} alert
-                </span>
-                <p className="text-sm mt-1">{alert.reason}</p>
-              </div>
-            ))}
+        {/* TODO(Dev3): Show alerts in a more prominent way */}
+        {alerts.map((alert, i) => (
+          <div key={i} className="px-4 py-3 rounded-lg bg-orange-900/30 border border-orange-700 text-orange-300 mb-2 w-full max-w-lg">
+            <span className="font-semibold text-xs uppercase">{alert.level} alert</span>
+            <p className="text-sm mt-1">{alert.reason}</p>
           </div>
-        )}
+        ))}
 
         {/* Transcription */}
         <div className="w-full max-w-lg">
-          <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">
-            Conversation
-          </h3>
-          <div className="space-y-3 max-h-64 overflow-y-auto">
+          <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Conversation</h3>
+          <div className="space-y-2 max-h-64 overflow-y-auto">
             {agentTranscriptions.map((t, i) => (
               <div key={i} className="flex gap-3">
-                <span className="text-purple-400 text-xs font-semibold mt-1 shrink-0">
-                  ALAN
-                </span>
+                <span className="text-purple-400 text-xs font-semibold mt-1 shrink-0">ALAN</span>
                 <p className="text-slate-300 text-sm">{t.text}</p>
               </div>
             ))}
             {agentTranscriptions.length === 0 && !callEnded && (
-              <p className="text-slate-500 text-sm italic">
-                {state === "connecting" || state === "initializing"
-                  ? "Waiting for agent to connect..."
-                  : "Conversation will appear here..."}
-              </p>
+              <p className="text-slate-500 text-sm italic">Conversation will appear here...</p>
             )}
           </div>
         </div>
-      </div>
-
-      {/* Footer */}
-      <div className="p-4 border-t border-slate-700 text-center">
-        <p className="text-slate-600 text-xs">
-          Powered by Mistral Voxtral + LiveKit | Your conversation is not recorded
-        </p>
       </div>
     </div>
   );

@@ -1,13 +1,14 @@
 """
-Function tools for the Alan health follow-up agent.
-These are called by the LLM during conversation via LiveKit's @function_tool decorator.
+Function tools — stubs with mock data (BOILERPLATE)
 
-Owner: Dev 2
-- get_patient_context() → loads patient profile from patients.json
-- get_reimbursement_info() → Linkup API search or hardcoded fallback
-- get_wearable_insights() → Thryve API or hardcoded fallback
+Each function has:
+1. A clear interface (what it takes, what it returns)
+2. A mock implementation that returns valid data
+3. A TODO marker for the dev who owns the real implementation
 
-All tools return the exact JSON structures from the data contracts in the PRD.
+The mock data matches the contracts in frontend/lib/types.ts.
+
+Grep tasks:  grep -n "TODO" tools.py
 """
 
 import json
@@ -17,16 +18,19 @@ from pathlib import Path
 
 logger = logging.getLogger("alan-tools")
 
-# ---------------------------------------------------------------------------
-# PATIENT DATA
-# ---------------------------------------------------------------------------
+PATIENTS_FILE = Path(__file__).parent / "patients.json"
 
-_PATIENTS_FILE = Path(__file__).parent / "patients.json"
 
+# ==========================================================================
+# PATIENT DATA (Dev 2)
+# ==========================================================================
 
 def load_patient(patient_id: str) -> dict:
-    """Load a patient profile from patients.json."""
-    with open(_PATIENTS_FILE) as f:
+    """Load a patient profile from patients.json.
+
+    Returns the full patient dict. Falls back to sophie_martin if not found.
+    """
+    with open(PATIENTS_FILE) as f:
         patients = json.load(f)
     patient = patients.get(patient_id)
     if not patient:
@@ -35,105 +39,57 @@ def load_patient(patient_id: str) -> dict:
     return patient
 
 
-# ---------------------------------------------------------------------------
-# REIMBURSEMENT — Linkup API with hardcoded fallback
-# ---------------------------------------------------------------------------
+# ==========================================================================
+# REIMBURSEMENT (Dev 2)
+#
+# Interface: get_reimbursement_info(procedure, patient) → dict
+# Returns:   { procedure, average_price, secu_rate, secu_reimbursement,
+#              alan_reimbursement, out_of_pocket, direct_billing }
+#
+# TODO(Dev2): Replace mock with Linkup API search.
+# The Linkup SDK is already installed (linkup-sdk).
+# Usage:
+#   from linkup import LinkupClient
+#   client = LinkupClient()  # reads LINKUP_API_KEY from env
+#   result = await client.async_search(
+#       query="taux remboursement sécurité sociale [procedure] France",
+#       depth="standard",
+#       output_type="sourcedAnswer",
+#       timeout=10.0,
+#   )
+#   # result.answer = text answer, result.sources = list of sources
+#
+# If Linkup returns unusable data, fall back to MOCK_REIMBURSEMENTS below.
+# ==========================================================================
 
-# Hardcoded French sécu reimbursement rates (public data from ameli.fr)
-# Used as fallback if Linkup API is unavailable or returns unusable data
-REIMBURSEMENT_DB = {
-    "general_consultation": {
-        "procedure": "General practitioner consultation",
-        "average_price": 26.50,
-        "secu_rate": 0.70,
-        "secu_reimbursement": 18.55,
-    },
-    "specialist_consultation": {
-        "procedure": "Specialist consultation",
-        "average_price": 50.0,
-        "secu_rate": 0.70,
-        "secu_reimbursement": 35.0,
-    },
-    "orthopedic_surgery": {
-        "procedure": "Orthopedic surgery (arthroscopy)",
-        "average_price": 500.0,
-        "secu_rate": 0.80,
-        "secu_reimbursement": 400.0,
-    },
-    "physiotherapy": {
-        "procedure": "Physiotherapy session",
-        "average_price": 30.0,
-        "secu_rate": 0.60,
-        "secu_reimbursement": 18.0,
-    },
-    "blood_test": {
-        "procedure": "Blood test (standard panel)",
-        "average_price": 40.0,
-        "secu_rate": 0.60,
-        "secu_reimbursement": 24.0,
-    },
-    "ultrasound": {
-        "procedure": "Ultrasound examination",
-        "average_price": 75.0,
-        "secu_rate": 0.70,
-        "secu_reimbursement": 52.50,
-    },
-    "mri": {
-        "procedure": "MRI scan",
-        "average_price": 300.0,
-        "secu_rate": 0.70,
-        "secu_reimbursement": 210.0,
-    },
-    "xray": {
-        "procedure": "X-ray",
-        "average_price": 45.0,
-        "secu_rate": 0.70,
-        "secu_reimbursement": 31.50,
-    },
-    "dental_checkup": {
-        "procedure": "Dental check-up",
-        "average_price": 30.0,
-        "secu_rate": 0.70,
-        "secu_reimbursement": 21.0,
-    },
-    "teleconsultation": {
-        "procedure": "Teleconsultation",
-        "average_price": 26.50,
-        "secu_rate": 0.70,
-        "secu_reimbursement": 18.55,
-    },
-    "endocrinologist": {
-        "procedure": "Endocrinologist consultation",
-        "average_price": 50.0,
-        "secu_rate": 0.70,
-        "secu_reimbursement": 35.0,
-    },
-    "gynecologist": {
-        "procedure": "Gynecologist consultation",
-        "average_price": 60.0,
-        "secu_rate": 0.70,
-        "secu_reimbursement": 42.0,
-    },
-    "morphology_ultrasound": {
-        "procedure": "Morphology ultrasound (pregnancy)",
-        "average_price": 100.0,
-        "secu_rate": 1.0,
-        "secu_reimbursement": 100.0,
-    },
-    "glucose_tolerance_test": {
-        "procedure": "Glucose tolerance test",
-        "average_price": 35.0,
-        "secu_rate": 1.0,
-        "secu_reimbursement": 35.0,
-    },
+MOCK_REIMBURSEMENTS = {
+    "general_consultation":    {"procedure": "General practitioner consultation", "average_price": 26.50, "secu_rate": 0.70, "secu_reimbursement": 18.55},
+    "specialist_consultation": {"procedure": "Specialist consultation",          "average_price": 50.00, "secu_rate": 0.70, "secu_reimbursement": 35.00},
+    "physiotherapy":           {"procedure": "Physiotherapy session",             "average_price": 30.00, "secu_rate": 0.60, "secu_reimbursement": 18.00},
+    "blood_test":              {"procedure": "Blood test (standard panel)",       "average_price": 40.00, "secu_rate": 0.60, "secu_reimbursement": 24.00},
+    "ultrasound":              {"procedure": "Ultrasound examination",            "average_price": 75.00, "secu_rate": 0.70, "secu_reimbursement": 52.50},
+    "mri":                     {"procedure": "MRI scan",                          "average_price": 300.0, "secu_rate": 0.70, "secu_reimbursement": 210.0},
+    "xray":                    {"procedure": "X-ray",                             "average_price": 45.00, "secu_rate": 0.70, "secu_reimbursement": 31.50},
+    "teleconsultation":        {"procedure": "Teleconsultation",                  "average_price": 26.50, "secu_rate": 0.70, "secu_reimbursement": 18.55},
+    "endocrinologist":         {"procedure": "Endocrinologist consultation",      "average_price": 50.00, "secu_rate": 0.70, "secu_reimbursement": 35.00},
+    "gynecologist":            {"procedure": "Gynecologist consultation",         "average_price": 60.00, "secu_rate": 0.70, "secu_reimbursement": 42.00},
+    "morphology_ultrasound":   {"procedure": "Morphology ultrasound (pregnancy)", "average_price": 100.0, "secu_rate": 1.00, "secu_reimbursement": 100.0},
+    "glucose_tolerance_test":  {"procedure": "Glucose tolerance test",            "average_price": 35.00, "secu_rate": 1.00, "secu_reimbursement": 35.00},
 }
 
 
-def _compute_reimbursement(base: dict, complementary_rate: float) -> dict:
-    """Compute Alan's reimbursement on top of sécu."""
+async def get_reimbursement_info(procedure: str, patient: dict) -> dict:
+    """Get reimbursement info for a procedure.
+
+    TODO(Dev2): Replace this mock with real Linkup API call.
+    """
+    # --- STUB: returns mock data ---
+    base = MOCK_REIMBURSEMENTS.get(procedure, MOCK_REIMBURSEMENTS["specialist_consultation"])
+    complementary_rate = patient["contract"]["complementary_rate"]
     remaining = base["average_price"] - base["secu_reimbursement"]
     alan_reimbursement = round(remaining * complementary_rate, 2)
     out_of_pocket = round(remaining - alan_reimbursement, 2)
+
     return {
         "procedure": base["procedure"],
         "average_price": base["average_price"],
@@ -145,155 +101,57 @@ def _compute_reimbursement(base: dict, complementary_rate: float) -> dict:
     }
 
 
-async def search_reimbursement_linkup(procedure_query: str) -> dict | None:
-    """Search Linkup API for reimbursement info. Returns None if unavailable."""
-    api_key = os.environ.get("LINKUP_API_KEY")
-    if not api_key:
-        logger.info("LINKUP_API_KEY not set, using hardcoded reimbursement data")
-        return None
+# ==========================================================================
+# WEARABLE DATA (Dev 2)
+#
+# Interface: get_wearable_data(patient_id, thryve_user_id) → dict
+# Returns:   { source, period, heart_rate{...}, sleep{...}, activity{...},
+#              risk_patterns[] }
+#
+# TODO(Dev2): Replace mock with Thryve API call.
+# Thryve credentials and API docs arrive Saturday morning at the hackathon.
+# When you get them:
+#   1. Read the Thryve API docs for the correct endpoint + auth
+#   2. Fetch heart_rate, sleep, activity data for the past 7 days
+#   3. Transform the Thryve response into the format below
+#   4. Compute trends by comparing recent vs baseline
+#   5. If the API doesn't work → keep the mock, demo is identical
+#
+# The mock data below is medically realistic for each patient scenario.
+# ==========================================================================
 
-    try:
-        from linkup import LinkupClient
-
-        client = LinkupClient(api_key=api_key)
-        result = await client.async_search(
-            query=f"taux remboursement sécurité sociale {procedure_query} France 2025 2026",
-            depth="standard",
-            output_type="sourcedAnswer",
-            include_domains=["ameli.fr", "service-public.fr"],
-            timeout=10.0,
-        )
-        # Return the sourced answer — the LLM will extract relevant numbers
-        return {
-            "source": "linkup",
-            "answer": result.answer,
-            "sources": [{"name": s.name, "url": s.url} for s in result.sources[:3]],
-        }
-    except Exception as e:
-        logger.warning(f"Linkup API error: {e}, falling back to hardcoded data")
-        return None
-
-
-def get_reimbursement_from_db(procedure_key: str, complementary_rate: float) -> dict:
-    """Get reimbursement info from hardcoded database."""
-    base = REIMBURSEMENT_DB.get(procedure_key)
-    if not base:
-        # Default to specialist consultation
-        base = REIMBURSEMENT_DB["specialist_consultation"]
-    return _compute_reimbursement(base, complementary_rate)
-
-
-# ---------------------------------------------------------------------------
-# WEARABLE DATA — Thryve API with hardcoded fallback
-# ---------------------------------------------------------------------------
-
-# Hardcoded wearable data per patient (used until Thryve API is connected)
-HARDCODED_WEARABLES = {
+MOCK_WEARABLES = {
     "sophie_martin": {
         "source": "Fitbit",
         "period": "last_7_days",
-        "heart_rate": {
-            "current_resting_avg": 78,
-            "baseline_resting_avg": 65,
-            "trend": "elevated",
-        },
-        "sleep": {
-            "current_avg_hours": 5.5,
-            "baseline_avg_hours": 7.2,
-            "trend": "declining",
-        },
-        "activity": {
-            "current_avg_steps": 2100,
-            "baseline_avg_steps": 8500,
-            "trend": "significantly_reduced",
-        },
+        "heart_rate": {"current_resting_avg": 78, "baseline_resting_avg": 65, "trend": "elevated"},
+        "sleep":      {"current_avg_hours": 5.5, "baseline_avg_hours": 7.2, "trend": "declining"},
+        "activity":   {"current_avg_steps": 2100, "baseline_avg_steps": 8500, "trend": "significantly_reduced"},
         "risk_patterns": ["elevated_hr_post_surgery", "sleep_deficit"],
     },
     "marc_dubois": {
         "source": "Apple Watch",
         "period": "last_7_days",
-        "heart_rate": {
-            "current_resting_avg": 72,
-            "baseline_resting_avg": 70,
-            "trend": "stable",
-        },
-        "sleep": {
-            "current_avg_hours": 6.8,
-            "baseline_avg_hours": 7.0,
-            "trend": "stable",
-        },
-        "activity": {
-            "current_avg_steps": 5200,
-            "baseline_avg_steps": 6000,
-            "trend": "slightly_reduced",
-        },
+        "heart_rate": {"current_resting_avg": 72, "baseline_resting_avg": 70, "trend": "stable"},
+        "sleep":      {"current_avg_hours": 6.8, "baseline_avg_hours": 7.0, "trend": "stable"},
+        "activity":   {"current_avg_steps": 5200, "baseline_avg_steps": 6000, "trend": "slightly_reduced"},
         "risk_patterns": [],
     },
     "lea_chen": {
         "source": "Garmin",
         "period": "last_7_days",
-        "heart_rate": {
-            "current_resting_avg": 82,
-            "baseline_resting_avg": 68,
-            "trend": "elevated",
-        },
-        "sleep": {
-            "current_avg_hours": 6.2,
-            "baseline_avg_hours": 7.8,
-            "trend": "declining",
-        },
-        "activity": {
-            "current_avg_steps": 4800,
-            "baseline_avg_steps": 9000,
-            "trend": "reduced",
-        },
+        "heart_rate": {"current_resting_avg": 82, "baseline_resting_avg": 68, "trend": "elevated"},
+        "sleep":      {"current_avg_hours": 6.2, "baseline_avg_hours": 7.8, "trend": "declining"},
+        "activity":   {"current_avg_steps": 4800, "baseline_avg_steps": 9000, "trend": "reduced"},
         "risk_patterns": ["elevated_hr_pregnancy_normal", "reduced_activity_pregnancy_normal"],
     },
 }
 
 
-async def fetch_wearable_thryve(thryve_user_id: str) -> dict | None:
-    """Fetch wearable data from Thryve API. Returns None if unavailable."""
-    api_key = os.environ.get("THRYVE_API_KEY")
-    app_id = os.environ.get("THRYVE_APP_ID")
-    if not api_key or not app_id:
-        logger.info("THRYVE credentials not set, using hardcoded wearable data")
-        return None
-
-    try:
-        import httpx
-
-        async with httpx.AsyncClient() as client:
-            # Thryve sandbox API — endpoint and auth TBD at hackathon
-            response = await client.get(
-                f"https://api.thryve.health/v5/users/{thryve_user_id}/daily-dynamic",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "X-App-Id": app_id,
-                },
-                params={"startDate": "2026-04-03", "endDate": "2026-04-10"},
-                timeout=10.0,
-            )
-            response.raise_for_status()
-            raw_data = response.json()
-
-            # TODO: Transform Thryve raw response into our contract format
-            # This will be implemented once we have the actual API docs
-            # For now, return the raw data and let the calling code handle it
-            return raw_data
-    except Exception as e:
-        logger.warning(f"Thryve API error: {e}, falling back to hardcoded data")
-        return None
-
-
-def get_wearable_hardcoded(patient_id: str) -> dict:
-    """Get hardcoded wearable data for a patient."""
-    return HARDCODED_WEARABLES.get(patient_id, HARDCODED_WEARABLES["sophie_martin"])
-
-
 async def get_wearable_data(patient_id: str, thryve_user_id: str) -> dict:
-    """Get wearable data from Thryve API, falling back to hardcoded data."""
-    thryve_data = await fetch_wearable_thryve(thryve_user_id)
-    if thryve_data:
-        return thryve_data
-    return get_wearable_hardcoded(patient_id)
+    """Get wearable data for a patient.
+
+    TODO(Dev2): Replace this mock with real Thryve API call.
+    """
+    # --- STUB: returns mock data ---
+    return MOCK_WEARABLES.get(patient_id, MOCK_WEARABLES["sophie_martin"])
