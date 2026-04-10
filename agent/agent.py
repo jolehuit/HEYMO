@@ -22,6 +22,7 @@ from livekit.agents import (
     Agent,
     AgentServer,
     AgentSession,
+    JobProcess,
     RoomInputOptions,
     RunContext,
     cli,
@@ -40,6 +41,15 @@ from tools import (
 
 logger = logging.getLogger("alan-agent")
 logger.setLevel(logging.INFO)
+
+
+# --------------------------------------------------------------------------
+# PREWARM — load models once at startup, not per-session
+# --------------------------------------------------------------------------
+
+def prewarm(proc: JobProcess):
+    """Pre-load Silero VAD model at worker startup for faster cold starts."""
+    proc.userdata["vad"] = silero.VAD.load()
 
 
 class AlanHealthAgent(Agent):
@@ -261,6 +271,7 @@ async def generate_summary(
 # --------------------------------------------------------------------------
 
 server = AgentServer()
+server.setup_fnc = prewarm
 
 
 @server.rtc_session()
@@ -287,12 +298,12 @@ async def entrypoint(ctx):
     # Create the agent with full context
     agent = AlanHealthAgent(patient=patient, wearable_data=wearable_data)
 
-    # Configure the voice pipeline
+    # Configure the voice pipeline (VAD pre-loaded at startup via prewarm)
     session = AgentSession(
         stt=mistralai.STT(model="voxtral-mini-transcribe-realtime-2602"),
         llm=mistralai.LLM(model="mistral-small-latest"),
         tts=mistralai.TTS(voice="en_paul_confident"),
-        vad=silero.VAD.load(),
+        vad=ctx.proc.userdata["vad"],
         turn_detection=MultilingualModel(),
     )
 
