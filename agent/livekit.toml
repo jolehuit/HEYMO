@@ -1,0 +1,14 @@
+# LiveKit Cloud agent configuration
+# This file is read by `lk agent create` and `lk agent deploy`
+# Docs: https://docs.livekit.io/deploy/agents/quickstart/
+
+[agent]
+name = "alan-care-call"
+entrypoint = "agent.py"
+
+[build]
+python_version = "3.12"
+
+# Uncomment to pin to a specific region
+# [deploy]
+# region = "eu-west-1"

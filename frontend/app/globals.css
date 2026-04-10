@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+:root {
+  --alan-purple: #5b21b6;
+  --alan-purple-light: #7c3aed;
+  --alan-blue: #2563eb;
+  --alan-green: #059669;
+  --alan-orange: #d97706;
+  --alan-red: #dc2626;
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-card: #334155;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* LiveKit component overrides */
+[data-lk-theme="default"] {
+  --lk-bg: var(--bg-secondary);
+  --lk-fg: var(--text-primary);
+}

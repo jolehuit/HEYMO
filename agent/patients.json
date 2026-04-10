@@ -1,0 +1,120 @@
+{
+  "sophie_martin": {
+    "patient_id": "sophie_martin",
+    "name": "Sophie Martin",
+    "age": 42,
+    "plan": "Alan Blue",
+    "communication_style": "needs_reassurance",
+    "thryve_user_id": "sandbox_user_03",
+    "recent_event": {
+      "type": "hospitalization",
+      "description": "Right knee arthroscopy",
+      "date": "2026-03-26",
+      "provider": "Clinique du Sport Paris",
+      "followup_required": "Surgeon follow-up before April 25",
+      "followup_booked": false
+    },
+    "medications": [
+      {
+        "name": "Ketoprofen 100mg",
+        "dosage": "1 tablet morning and evening",
+        "frequency": "twice daily",
+        "remaining_days": 0,
+        "side_effects_common": ["stomach upset", "dizziness"]
+      },
+      {
+        "name": "Lovenox 4000 IU",
+        "dosage": "1 injection per day",
+        "frequency": "once daily",
+        "remaining_days": 7,
+        "side_effects_common": ["bruising at injection site"]
+      }
+    ],
+    "contract": {
+      "formula": "Alan Blue",
+      "complementary_rate": 1.0,
+      "teleconsultation_included": true
+    }
+  },
+  "marc_dubois": {
+    "patient_id": "marc_dubois",
+    "name": "Marc Dubois",
+    "age": 58,
+    "plan": "Alan Green",
+    "communication_style": "direct_factual",
+    "thryve_user_id": "sandbox_user_07",
+    "recent_event": {
+      "type": "consultation",
+      "description": "Type 2 diabetes follow-up with endocrinologist",
+      "date": "2026-04-02",
+      "provider": "Dr. Laurent Moreau, Endocrinologist",
+      "followup_required": "Blood test (HbA1c) before May 15, next consult May 20",
+      "followup_booked": true
+    },
+    "medications": [
+      {
+        "name": "Metformin 1000mg",
+        "dosage": "1 tablet morning and evening with meals",
+        "frequency": "twice daily",
+        "remaining_days": 45,
+        "side_effects_common": ["nausea", "diarrhea", "stomach cramps"]
+      },
+      {
+        "name": "Jardiance 10mg",
+        "dosage": "1 tablet in the morning",
+        "frequency": "once daily",
+        "remaining_days": 45,
+        "side_effects_common": ["urinary tract infections", "increased urination"]
+      },
+      {
+        "name": "Atorvastatin 20mg",
+        "dosage": "1 tablet at bedtime",
+        "frequency": "once daily",
+        "remaining_days": 30,
+        "side_effects_common": ["muscle pain", "headache"]
+      }
+    ],
+    "contract": {
+      "formula": "Alan Green",
+      "complementary_rate": 0.8,
+      "teleconsultation_included": true
+    }
+  },
+  "lea_chen": {
+    "patient_id": "lea_chen",
+    "name": "Lea Chen",
+    "age": 31,
+    "plan": "Alan Blue",
+    "communication_style": "informed_proactive",
+    "thryve_user_id": "sandbox_user_11",
+    "recent_event": {
+      "type": "pregnancy_followup",
+      "description": "Second trimester pregnancy check-up (22 weeks)",
+      "date": "2026-04-05",
+      "provider": "Dr. Marie Lefevre, Obstetrician-Gynecologist",
+      "followup_required": "Morphology ultrasound before April 20, glucose tolerance test before April 30",
+      "followup_booked": false
+    },
+    "medications": [
+      {
+        "name": "Prenatal Vitamins (Gynefam Plus)",
+        "dosage": "1 capsule daily",
+        "frequency": "once daily",
+        "remaining_days": 60,
+        "side_effects_common": ["nausea", "constipation"]
+      },
+      {
+        "name": "Iron supplement (Tardyferon 80mg)",
+        "dosage": "1 tablet daily on empty stomach",
+        "frequency": "once daily",
+        "remaining_days": 30,
+        "side_effects_common": ["constipation", "dark stools", "stomach discomfort"]
+      }
+    ],
+    "contract": {
+      "formula": "Alan Blue",
+      "complementary_rate": 1.0,
+      "teleconsultation_included": true
+    }
+  }
+}
