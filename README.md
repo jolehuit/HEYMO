@@ -1,8 +1,25 @@
 # Alan Care Call
 
-Voice AI agent that calls Alan members for post-consultation health follow-up.
+Proactive voice AI agent that calls Alan health insurance members after a medical event (surgery, consultation, pregnancy check-up) to check on them, verify medication compliance, discuss wearable health data, and provide reimbursement info.
 
 **Stack:** Mistral (Voxtral STT + Small 4 LLM + Voxtral TTS) + Linkup + Thryve + LiveKit
+
+**Docs:**
+- [PRD.md](./PRD.md) — what we're building and why
+- [ARCHITECTURE.md](./ARCHITECTURE.md) — how the pieces fit together, data flows, compatibility matrix
+- [TASKS.md](./TASKS.md) — who does what, setup commands, checkpoints
+
+---
+
+## How it works
+
+1. The judge opens the URL, picks a patient profile (Sophie, Marc, or Lea)
+2. Clicks "Start Call" — the voice agent wakes up and greets by name
+3. **The judge plays the patient** — has a voice conversation with the agent (1-3 min)
+4. Clicks "End Call"
+5. **The admin dashboard appears** — structured summary of the call (what Alan's care team would see in production): patient state, medications, wearable data, alerts, reimbursement, next steps
+
+The agent follows a **playbook** — a set of instructions in plain English that defines its behavior during the call (tone, what to ask, when to escalate). See [PRD.md section 3](./PRD.md) for details.
 
 ---
 
@@ -58,8 +75,8 @@ vercel deploy --prod
 ```
 alan-care-call/
 ├── agent/                     # Python voice agent (Dev 1 + Dev 2)
-│   ├── agent.py               # Agent skeleton — LiveKit session + function tools
-│   ├── playbook.py            # System prompt — Non-tech edits the text
+│   ├── agent.py               # Agent skeleton — voice pipeline + function tools
+│   ├── playbook.py            # Playbook — Non-tech edits the English text
 │   ├── tools.py               # Function tools — stubs with mock data
 │   ├── patients.json          # 3 patient profiles
 │   ├── requirements.txt
@@ -70,13 +87,16 @@ alan-care-call/
 │   ├── app/page.tsx           # Main page — selector → call → dashboard
 │   ├── app/api/token/route.ts # Token endpoint (passes patient_id to agent)
 │   ├── components/
-│   │   ├── PatientSelector.tsx
-│   │   ├── CallInterface.tsx
-│   │   └── Dashboard.tsx
+│   │   ├── PatientSelector.tsx  # Pick a patient scenario
+│   │   ├── CallInterface.tsx    # Patient view — voice call UI
+│   │   └── Dashboard.tsx        # Admin view — post-call summary
 │   ├── lib/types.ts           # Data contracts (single source of truth)
 │   └── .env.example
 │
-├── TASKS.md                   # Task distribution per dev ← READ THIS
+├── pitch/                     # Pitch materials (Non-tech)
+├── PRD.md                     # Product requirements
+├── ARCHITECTURE.md            # System architecture + data flows
+├── TASKS.md                   # Task distribution ← READ THIS FIRST
 └── README.md
 ```
 
@@ -84,34 +104,14 @@ alan-care-call/
 
 ## Who does what
 
-See **[TASKS.md](./TASKS.md)** for the full breakdown.
+See **[TASKS.md](./TASKS.md)** for the full breakdown with priorities, setup commands, and checkpoints.
 
 | Dev | Area | Entry point | First command |
 |-----|------|-------------|---------------|
-| **Dev 1** | Agent core + LiveKit | `agent/agent.py` | `python agent.py console` |
-| **Dev 2** | Tools + Linkup + Thryve | `agent/tools.py` | Test Linkup API |
-| **Dev 3** | Frontend UI | `frontend/` | `pnpm dev` |
-| **Non-tech** | Playbook + pitch | `agent/playbook.py` | Edit the PLAYBOOK text |
-
----
-
-## How it works
-
-```
-Judge opens URL → picks patient → clicks Start Call
-        ↓
-Frontend gets token (with patient_id) → connects to LiveKit room
-        ↓
-LiveKit wakes the Python agent → agent reads patient_id
-        ↓
-Agent loads patient data + wearable data → starts conversation
-        ↓
-During call: Voxtral STT → Mistral Small 4 → Voxtral TTS
-        ↓
-Judge clicks End Call → agent sends summary JSON via text stream
-        ↓
-Frontend displays the Dashboard
-```
+| **Dev 1** | Agent voice pipeline | `agent/agent.py` | `python agent.py console` |
+| **Dev 2** | Data + Linkup + Thryve APIs | `agent/tools.py` | Test Linkup API |
+| **Dev 3** | Frontend (patient view + admin dashboard) | `frontend/` | `pnpm dev` |
+| **Non-tech** | Playbook + pitch + testing | `agent/playbook.py` | Edit the PLAYBOOK text |
 
 ---
 
