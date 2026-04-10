@@ -16,21 +16,63 @@ A **proactive voice AI agent** that calls Alan members after a health event to:
 - Provide real-time reimbursement information
 - Detect warning signs and escalate when needed
 
-## 3. User Flow
+## 3. What is a playbook?
+
+A playbook is a **set of instructions in plain English** that tells the AI agent how to behave
+during a call. It's the same concept as the scripts that human call center agents follow — but
+for an AI. Alan uses playbooks in production for their chat automation (it increased their
+automation rate from 20% to 40%).
+
+The playbook defines:
+- **Tone and style** — warm, professional, concise
+- **Conversation structure** — opening → clinical follow-up → medication check → appointment check → closing
+- **When to use tools** — look up reimbursement, mention wearable data
+- **When to escalate** — fever, severe pain, emotional distress → flag alert
+- **Absolute rules** — never diagnose, never prescribe, always refer to a doctor
+
+The playbook lives in `agent/playbook.py` as a plain text variable. The Non-tech teammate
+writes and refines it. No code knowledge needed — just edit the English text.
+
+## 4. User flow — two distinct views
+
+The demo has **two views in one flow**. The judge plays two roles:
+
+### During the call → Patient view (the judge role-plays as the patient)
+
+The agent calls the judge. The judge pretends to be Sophie/Marc/Lea and answers
+questions about their health. This demonstrates the voice AI conversation quality.
+
+### After the call → Admin dashboard (care team view)
+
+Once the call ends, the judge sees the dashboard — this is what **Alan's care team**
+would see in production. It shows the structured summary: patient state, medications,
+wearable data, alerts, actions, reimbursement discussed. This demonstrates the data
+extraction and clinical value of the call.
 
 ```
-1. Judge opens the URL
-2. Sees 3 patient profiles → picks one
-3. Clicks "Start Call" → waits 10-20s (agent cold start)
-4. Agent greets by name, references their recent health event
-5. Natural voice conversation (1-3 minutes)
-6. Judge clicks "End Call"
-7. Dashboard appears with structured summary:
-   - Patient state, medications, wearable data
-   - Alerts, reimbursement info, next steps
+Judge opens URL
+    ↓
+Patient selector (demo convenience — pick a scenario to test)
+    ↓
+"Start Call" → agent wakes up (10-20s cold start)
+    ↓
+┌──────────────��──────────────────────────────┐
+│  PATIENT VIEW — judge role-plays as patient  │
+│  Voice conversation with the AI agent        │
+│  Audio visualizer + live transcription       │
+└─────────────────────────────────────────────┘
+    ↓
+"End Call"
+    ↓
+┌─────────────────────────────────────────────┐
+│  ADMIN DASHBOARD — care team view            │
+│  Structured summary of the call              │
+│  Patient state, meds, wearables, alerts      │
+│  Reimbursement discussed, next steps         │
+└─────────────────────────────────────────────┘
 ```
 
-## 4. Patient Profiles
+## 5. Patient Profiles
 
 ### Sophie Martin (42, Alan Blue)
 - **Event:** Right knee arthroscopy — March 26, 2026
@@ -53,7 +95,7 @@ A **proactive voice AI agent** that calls Alan members after a health event to:
 - **Wearable:** Elevated HR (82 vs 68, normal for pregnancy), declining sleep, reduced activity
 - **Risk:** Normal pregnancy patterns, but appointments need booking
 
-## 5. Data Contracts
+## 6. Data Contracts
 
 **Single source of truth:** `frontend/lib/types.ts`
 
@@ -107,7 +149,7 @@ interface LiveAlert {
 }
 ```
 
-## 6. Hackathon Partners
+## 7. Hackathon Partners
 
 | Partner | Role | Integration |
 |---------|------|-------------|
@@ -116,7 +158,7 @@ interface LiveAlert {
 | **Thryve** | Wearable health data | Sandbox API — heart rate, sleep, activity from Fitbit/Apple Watch/Garmin |
 | **LiveKit** | Voice infrastructure | WebRTC rooms, agent hosting, text streams |
 
-## 7. Tech Stack (verified April 10, 2026)
+## 8. Tech Stack (verified April 10, 2026)
 
 ### Agent (Python)
 
@@ -157,7 +199,7 @@ interface LiveAlert {
 | Frontend | Vercel | Free |
 | WebRTC | LiveKit Cloud | Included |
 
-## 8. Known Risks
+## 9. Known Risks
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|
@@ -168,7 +210,7 @@ interface LiveAlert {
 | `useTextStream` is @beta | Low | Verified it exists and works, used by LiveKit themselves |
 | Network issues at hackathon | Low | 4G hotspot backup |
 
-## 9. Non-Goals
+## 10. Non-Goals
 
 - No real SMS sending (simulated)
 - No database (all data in JSON files + LiveKit text streams)

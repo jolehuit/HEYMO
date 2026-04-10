@@ -23,8 +23,11 @@ Deux composants déployés séparément. Ils communiquent via LiveKit Cloud (Web
 │                                                      │
 │  ┌─────────────────────────────────────────┐         │
 │  │ page.tsx                                 │         │
-│  │  └─ PatientSelector → CallInterface     │         │
-│  │      → Dashboard                        │         │
+│  │  1. PatientSelector (choix du scénario)  │         │
+│  │  2. CallInterface (vue patient —         │         │
+│  │     le juge joue le rôle du patient)     │         │
+│  │  3. Dashboard (vue admin —               │         │
+│  │     ce que l'équipe soin verrait)        │         │
 │  └─────────────────────────────────────────┘         │
 │                                                      │
 │  ┌─────────────────────────────────────────┐         │
@@ -215,6 +218,39 @@ CallInterface.tsx affiche le bandeau d'alerte
 ```
 
 **Statut :** le frontend est prêt à recevoir. Le `send_text` dans `flag_alert` est un `TODO(Dev1)`.
+
+### 5. Comment le résumé post-appel se construit
+
+Le résumé est un JSON (`CallSummary`) assemblé à partir de **3 sources** :
+
+```
+SOURCE 1 — Données chargées au début de l'appel (automatique)
+├── patient profile (name, meds, event, contract) ← patients.json
+└── wearable data (HR, sleep, steps) ← Thryve API ou mock
+
+SOURCE 2 — Données accumulées pendant l'appel (via function tools)
+├── _alert_level ← mis à jour si flag_alert() est appelé par le LLM
+├── _actions[] ← rempli par flag_alert() et schedule_followup()
+└── _reimbursement_discussed ← rempli si get_reimbursement_info() est appelé
+
+SOURCE 3 — Résumé de la conversation (TODO Dev 1)
+├── patient_state.pain_level ← ce que le patient a dit sur sa douleur
+├── patient_state.mood ← son état émotionnel
+├── patient_state.general ← impression générale
+└── summary ← résumé en 1-2 phrases de la conversation
+
+                ┌──────────────┐
+                │ generate_     │
+  Source 1 ────▶│ summary()    │────▶ JSON CallSummary
+  Source 2 ────▶│              │      envoyé au frontend
+  Source 3 ────▶│ agent.py     │      via text stream
+                └──────────────┘
+```
+
+**Aujourd'hui dans le boilerplate :**
+- Source 1 : fonctionne (données patient + wearable chargées au démarrage)
+- Source 2 : fonctionne (les tools accumulent dans `_alert_level`, `_actions`, `_reimbursement_discussed`)
+- Source 3 : **stub** — retourne `"unknown"` partout. Dev 1 doit utiliser le LLM pour résumer l'historique de conversation et remplir ces champs avec du vrai contenu.
 
 ---
 
