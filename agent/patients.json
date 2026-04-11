@@ -5,6 +5,7 @@
     "age": 42,
     "plan": "Alan Blue",
     "communication_style": "needs_reassurance",
+    "location": "Paris 11e",
     "thryve_user_id": "79187771a36482f013203b32712e873d",
     "recent_event": {
       "type": "hospitalization",
@@ -42,6 +43,7 @@
     "age": 58,
     "plan": "Alan Green",
     "communication_style": "direct_factual",
+    "location": "Lyon 6e",
     "thryve_user_id": "1e2e53da12e0a9aebb3750af3c5857e1",
     "recent_event": {
       "type": "consultation",
@@ -86,6 +88,7 @@
     "age": 31,
     "plan": "Alan Blue",
     "communication_style": "informed_proactive",
+    "location": "Bordeaux Centre",
     "thryve_user_id": "7f82fc3b0abba3a86b5e15c911fc5f6e",
     "recent_event": {
       "type": "pregnancy_followup",
