@@ -86,6 +86,20 @@ class AlanHealthAgent(Agent):
         super().__init__(instructions=instructions)
 
     # ------------------------------------------------------------------
+    # CTA HELPER — sends live call-to-action cards to the frontend
+    # ------------------------------------------------------------------
+
+    async def _send_cta(self, action: str, label: str, data: dict | None = None):
+        """Send a call-to-action card to the frontend during the call."""
+        if self._room:
+            cta = {"type": "cta", "action": action, "label": label}
+            if data:
+                cta["data"] = data
+            await self._room.local_participant.send_text(
+                json.dumps(cta), topic="live-updates",
+            )
+
+    # ------------------------------------------------------------------
     # FUNCTION TOOLS (Dev 2)
     #
     # These are called by the LLM during conversation.
@@ -113,6 +127,7 @@ class AlanHealthAgent(Agent):
         from tools import get_reimbursement_info
         result = await get_reimbursement_info(procedure, self._patient)
         self._reimbursement_discussed = result
+        await self._send_cta("reimbursement", f"Remboursement — {procedure}", result)
         return json.dumps(result, indent=2)
 
     @function_tool
@@ -166,6 +181,10 @@ class AlanHealthAgent(Agent):
             "type": "followup_call",
             "description": description,
             "scheduled_date": scheduled_date,
+        })
+        await self._send_cta("appointment", f"Rendez-vous — {description}", {
+            "date": scheduled_date,
+            "description": description,
         })
         return f"Follow-up scheduled for {scheduled_date}: {description}"
 
@@ -236,10 +255,19 @@ class AlanHealthAgent(Agent):
                     "type": "provider_search",
                     "description": f"Searched for {specialty} in {location}",
                 })
+                await self._send_cta("provider", f"{specialty} — {location}", {
+                    "specialty": specialty,
+                    "location": location,
+                    "result": result.answer,
+                })
                 return f"Search results for {specialty} in {location}:\n{result.answer}"
             except Exception as e:
                 logger.warning(f"Linkup provider search error: {e}")
 
+        await self._send_cta("provider", f"{specialty} — {location}", {
+            "specialty": specialty,
+            "location": location,
+        })
         return f"I can help you find a {specialty} in {location}. You can find practitioners near you in the Alan app via Alan Map."
 
     @function_tool
@@ -255,7 +283,48 @@ class AlanHealthAgent(Agent):
             "type": "teleconsultation_requested",
             "description": f"Teleconsultation requested for {self._patient['name']}",
         })
+        await self._send_cta("teleconsultation", "Lancer la téléconsultation", {
+            "patient_id": self._patient["patient_id"],
+        })
         return f"I've requested a teleconsultation for you. A doctor from Alan's network will call you within the next 30 minutes. It's fully covered by your {self._patient['contract']['formula']} plan."
+
+    @function_tool
+    async def connect_with_doctor(
+        self,
+        context: RunContext,
+        reason: str,
+    ) -> str:
+        """Connect the patient with a doctor in the app, sharing the full call context.
+        The doctor will see the conversation summary and can start chatting with the patient.
+        Use this when the patient needs medical advice, wants to discuss symptoms,
+        or you recommend they speak with a healthcare professional.
+
+        Args:
+            reason: Brief reason for the consultation, e.g. 'post-surgery pain', 'medication side effects'
+        """
+        transcript_lines = []
+        if self.session:
+            for msg in self.session.history.messages:
+                text = msg.text_content
+                if msg.role in ("user", "assistant") and text:
+                    speaker = self._patient["name"].split()[0] if msg.role == "user" else "Maude"
+                    transcript_lines.append(f"{speaker}: {text}")
+
+        call_context = "\n".join(transcript_lines[-10:])
+        await self._send_cta("doctor_connect", "Mise en relation avec un médecin", {
+            "patient_id": self._patient["patient_id"],
+            "patient_name": self._patient["name"],
+            "reason": reason,
+            "call_context": call_context,
+        })
+        self._actions.append({
+            "type": "doctor_connect",
+            "description": f"Patient connected with doctor: {reason}",
+        })
+
+        if self._lang == "fr":
+            return "Je vous mets en relation avec un médecin. Il aura tout le contexte de notre conversation. Vous allez recevoir une notification dans l'app."
+        return "I'm connecting you with a doctor now. They'll have the full context of our conversation. You'll get a notification in the app."
 
     # ------------------------------------------------------------------
     # LINKUP HELPER
@@ -530,17 +599,16 @@ async def entrypoint(ctx: JobContext):
     agent._room = ctx.room
 
     # --- Configure voice pipeline ---
-    # ElevenLabs TTS — much better voice quality than Voxtral
-    # FR: Lucie (empathetic customer care voice)
-    # EN: Rachel (warm, natural)
-    # Sarah — Mature, Reassuring, Confident (works well in both FR and EN)
-    tts_voice_id = "EXAVITQu4vr4xnSDxMaL" if lang == "fr" else "EXAVITQu4vr4xnSDxMaL"
+    # ElevenLabs TTS — Sarah (Mature, Reassuring, Confident)
+    # eleven_multilingual_v2 for French (natural accent), eleven_turbo_v2_5 for English (low latency)
+    tts_voice_id = "EXAVITQu4vr4xnSDxMaL"
+    tts_model = "eleven_multilingual_v2" if lang == "fr" else "eleven_turbo_v2_5"
     session = AgentSession(
         stt=mistralai.STT(model="voxtral-mini-transcribe-realtime-2602"),
         llm=mistralai.LLM(model="mistral-small-latest"),
         tts=elevenlabs.TTS(
             voice_id=tts_voice_id,
-            model="eleven_turbo_v2_5",
+            model=tts_model,
             language=lang,
         ),
         vad=ctx.proc.userdata["vad"],
