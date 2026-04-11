@@ -99,14 +99,27 @@ export default function PatientActions({ summary, patient, liveCtas = [], onView
                         </div>
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#5C59F3" strokeWidth="2.5" strokeLinecap="round" className={`mt-1 transition-transform ${isOpen ? "rotate-90" : ""}`}><path d="M9 18l6-6-6-6"/></svg>
                       </div>
-                      {isOpen && (
-                        <div className="ml-7 mt-2 bg-[#F5F8FE] rounded-[10px] p-2.5 space-y-1">
+                      {isOpen && action.type === "appointment" && (
+                        <div className="ml-7 mt-2 bg-[#F5F8FE] rounded-[10px] p-2.5">
+                          {action.sms_sent && <p className="text-[10px] text-[#2AA79C] mb-2">✅ SMS {isFr ? "de rappel envoyé" : "reminder sent"}</p>}
+                          <p className="text-[9px] font-semibold text-[#8E8E93] uppercase tracking-wider mb-1.5">{isFr ? "Créneaux disponibles" : "Available slots"}</p>
+                          <div className="grid grid-cols-3 gap-1.5">
+                            {(isFr
+                              ? [{ d: "Lun 14", t: "09:30", ok: true }, { d: "Mar 15", t: "14:00", ok: true }, { d: "Mer 16", t: "10:15", ok: true }, { d: "Jeu 17", t: "11:00", ok: false }, { d: "Ven 18", t: "16:30", ok: true }, { d: "Lun 21", t: "09:00", ok: true }]
+                              : [{ d: "Mon 14", t: "09:30", ok: true }, { d: "Tue 15", t: "14:00", ok: true }, { d: "Wed 16", t: "10:15", ok: true }, { d: "Thu 17", t: "11:00", ok: false }, { d: "Fri 18", t: "16:30", ok: true }, { d: "Mon 21", t: "09:00", ok: true }]
+                            ).map((slot, j) => (
+                              <div key={j} className={`rounded-[8px] py-1.5 text-center ${slot.ok ? "bg-white text-[#5C59F3] border border-[#D6DBFF]" : "bg-[#F0F0F2] text-[#C7C7CC] line-through"}`}>
+                                <p className="text-[9px] font-semibold">{slot.d}</p>
+                                <p className="text-[11px] font-bold">{slot.t}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {isOpen && action.type === "followup_call" && (
+                        <div className="ml-7 mt-2 bg-[#F5F8FE] rounded-[10px] p-2.5">
                           {action.sms_sent && <p className="text-[10px] text-[#2AA79C]">✅ SMS {isFr ? "de rappel envoyé" : "reminder sent"}</p>}
-                          <p className="text-[10px] text-[#5C59F3] font-semibold">
-                            {action.type === "appointment"
-                              ? (isFr ? "📅 Voir les créneaux disponibles" : "📅 View available slots")
-                              : (isFr ? "📞 Rappel programmé" : "📞 Callback scheduled")}
-                          </p>
+                          <p className="text-[10px] text-[#5C59F3] font-semibold">{isFr ? "📞 Rappel programmé" : "📞 Callback scheduled"}</p>
                         </div>
                       )}
                     </button>

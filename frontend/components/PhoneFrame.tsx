@@ -26,7 +26,7 @@ export default function PhoneFrame({ children, bgClass = "bg-gradient-to-br from
         <div className="hidden lg:flex flex-col items-start mr-16 max-w-xs">
           <div className="flex items-center gap-3 mb-6">
             <Image src="/maude.png" alt="Maude" width={80} height={80} style={{ width: 80, height: "auto" }} className="rounded-2xl drop-shadow-lg" />
-            <span className="text-3xl font-bold text-white tracking-tight">alan</span>
+            <span className="text-3xl font-bold text-white tracking-tight">Maude</span>
           </div>
           <h2 className="text-3xl font-bold text-white leading-tight mb-3">
             HeyMo
