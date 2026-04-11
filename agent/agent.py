@@ -190,37 +190,35 @@ class AlanHealthAgent(Agent):
         context: RunContext,
         specialty: str,
     ) -> str:
-        """Search for a nearby healthcare provider or specialist.
-        Use this when the patient needs to book an appointment and wants
-        help finding a doctor, specialist, or clinic.
+        """Search for a nearby healthcare provider, specialist, pharmacy, or medical facility.
+        Use this when the patient needs to find a doctor, specialist, pharmacy, clinic,
+        laboratory, or any healthcare facility near them.
 
         Args:
-            specialty: The type of provider, e.g. 'orthopedic surgeon',
-                      'endocrinologist', 'gynecologist', 'physiotherapist'
+            specialty: The type of provider or facility, e.g. 'orthopedic surgeon',
+                      'endocrinologist', 'gynecologist', 'physiotherapist',
+                      'pharmacie', 'laboratoire d analyses', 'clinique', 'hôpital'
         """
         location = self._patient.get("location", "Paris")
-        import os
-        linkup_api_key = os.environ.get("LINKUP_API_KEY")
-        if linkup_api_key:
-            try:
-                from linkup import LinkupClient
-                client = LinkupClient()
-                query = f"{specialty} conventionné secteur 1 {location} prendre rendez-vous"
-                result = await client.async_search(
-                    query=query,
-                    depth="standard",
-                    output_type="sourcedAnswer",
-                    timeout=10.0,
-                )
-                self._actions.append({
-                    "type": "provider_search",
-                    "description": f"Searched for {specialty} in {location}",
-                })
-                return f"Search results for {specialty} in {location}:\n{result.answer}"
-            except Exception as e:
-                logger.warning(f"Linkup provider search error: {e}")
-
-        return f"I can help you find a {specialty} in {location}. I recommend checking Doctolib.fr or calling Alan's concierge service for an appointment."
+        query = f"{specialty} {location} nom spécialité adresse téléphone conventionné secteur 1 ou secteur 2 distance rendez-vous disponible"
+        try:
+            answer = await self._linkup_search(
+                query,
+                f"I recommend searching on Doctolib.fr for a {specialty} near {location}, or calling Alan's concierge service.",
+            )
+            self._actions.append({
+                "type": "provider_search",
+                "description": f"Searched for {specialty} in {location}",
+            })
+            return (
+                f"Results for {specialty} near {location}:\n{answer}\n\n"
+                f"When presenting these results, include for each doctor: "
+                f"name, specialty, address, approximate distance from {location}, "
+                f"and whether they are conventionné secteur 1 (no extra fees) or secteur 2 (possible extra fees)."
+            )
+        except Exception as e:
+            logger.warning(f"Provider search error: {e}")
+            return f"I can help you find a {specialty} in {location}. I recommend checking Doctolib.fr or calling Alan's concierge service for an appointment."
 
     @function_tool
     async def request_teleconsultation(self, context: RunContext) -> str:
