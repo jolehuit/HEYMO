@@ -533,7 +533,8 @@ async def entrypoint(ctx: JobContext):
     # ElevenLabs TTS — much better voice quality than Voxtral
     # FR: Lucie (empathetic customer care voice)
     # EN: Rachel (warm, natural)
-    tts_voice_id = "YxrwjAKoUKULGd0g8K9Y" if lang == "fr" else "21m00Tcm4TlvDq8ikWAM"
+    # Sarah — Mature, Reassuring, Confident (works well in both FR and EN)
+    tts_voice_id = "EXAVITQu4vr4xnSDxMaL" if lang == "fr" else "EXAVITQu4vr4xnSDxMaL"
     session = AgentSession(
         stt=mistralai.STT(model="voxtral-mini-transcribe-realtime-2602"),
         llm=mistralai.LLM(model="mistral-small-latest"),
