@@ -10,6 +10,7 @@ import Image from "next/image";
 import { CallSummary } from "@/lib/types";
 import { useTranslation } from "@/lib/i18n";
 import { CalendarIcon, PhoneIcon, CheckCircleIcon, PillIcon } from "./AlanIcons";
+import PhoneFrame from "./PhoneFrame";
 
 interface PatientActionsProps {
   summary: CallSummary;
@@ -42,28 +43,29 @@ export default function PatientActions({ summary, onViewDashboard, onBack }: Pat
   const otherActions = summary.actions.filter((a) => a.type !== "appointment");
 
   return (
-    <div className="min-h-screen bg-[#FFFCF5]">
+    <PhoneFrame>
+    <div className="bg-[#FFFCF5] min-h-full pb-8">
       {/* Header */}
-      <div className="bg-white border-b border-[#ECF1FC] px-6 py-4">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Image src="/maude.png" alt="Maude" width={32} height={32} className="rounded-full" />
+      <div className="bg-white border-b border-[#ECF1FC] px-5 pt-10 pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <Image src="/maude.png" alt="Maude" width={28} height={28} style={{ width: 28, height: 28 }} className="rounded-full" />
             <div>
-              <h1 className="text-lg font-bold text-[#282830]">
+              <h1 className="text-sm font-bold text-[#282830]">
                 {isFr ? "Vos actions" : "Your actions"}
               </h1>
-              <p className="text-xs text-[#9DA3BA]">
-                {isFr ? `Suite à votre appel du ${summary.date}` : `Following your call on ${summary.date}`}
+              <p className="text-[10px] text-[#9DA3BA]">
+                {isFr ? `Suite à votre appel` : `Following your call`}
               </p>
             </div>
           </div>
-          <button onClick={onBack} className="text-sm text-[#5C59F3] font-medium hover:underline">
-            {isFr ? "Nouvel appel" : "New call"}
+          <button onClick={onBack} className="text-xs text-[#5C59F3] font-medium">
+            {isFr ? "Accueil" : "Home"}
           </button>
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto p-6 space-y-6">
+      <div className="px-4 py-4 space-y-4">
         {/* Summary banner */}
         <div className="alan-card p-5 flex items-start gap-4">
           <Image src="/maude.png" alt="Maude" width={44} height={44} className="rounded-full shrink-0" />
@@ -220,5 +222,6 @@ export default function PatientActions({ summary, onViewDashboard, onBack }: Pat
         </div>
       </div>
     </div>
+    </PhoneFrame>
   );
 }

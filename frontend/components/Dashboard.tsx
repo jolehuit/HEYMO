@@ -10,6 +10,7 @@ import Image from "next/image";
 import { CallSummary } from "@/lib/types";
 import { useTranslation } from "@/lib/i18n";
 import { useAutoTranslate } from "@/lib/useAutoTranslate";
+import PhoneFrame from "./PhoneFrame";
 import { PillIcon, WatchIcon, WalletIcon, ClipboardIcon, CalendarIcon, PhoneIcon, FlagIcon, CheckCircleIcon, HeartPulseIcon } from "./AlanIcons";
 
 interface DashboardProps {
@@ -84,8 +85,9 @@ export default function Dashboard({ summary: rawSummary, onBack }: DashboardProp
   };
 
   return (
-    <div className="min-h-screen p-8 bg-[#FFFCF5]">
-      <div className="max-w-4xl mx-auto">
+    <PhoneFrame>
+    <div className="bg-[#FFFCF5] min-h-full p-4 pb-8">
+      <div className="pt-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -307,5 +309,6 @@ export default function Dashboard({ summary: rawSummary, onBack }: DashboardProp
         </div>
       </div>
     </div>
+    </PhoneFrame>
   );
 }
