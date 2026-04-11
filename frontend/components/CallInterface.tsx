@@ -18,7 +18,7 @@ import {
 } from "@livekit/components-react";
 import "@livekit/components-styles";
 import { PatientProfile } from "@/lib/patients";
-import { CallSummary, LiveAlert } from "@/lib/types";
+import { CallSummary, LiveAlert, LiveCTA, LiveUpdate } from "@/lib/types";
 import { useTranslation } from "@/lib/i18n";
 import Dashboard from "./Dashboard";
 import PhoneNotification from "./PhoneNotification";
@@ -200,6 +200,7 @@ function ActiveCallPhone({
   const { t, locale } = useTranslation();
   const { state, audioTrack, videoTrack, agentTranscriptions } = useVoiceAssistant();
   const [alerts, setAlerts] = useState<LiveAlert[]>([]);
+  const [ctas, setCtas] = useState<LiveCTA[]>([]);
   const [callDuration, setCallDuration] = useState(0);
   const [userTexts, setUserTexts] = useState<{ text: string; time: number }[]>([]);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
@@ -251,8 +252,9 @@ function ActiveCallPhone({
   useEffect(() => {
     if (liveUpdates.length > 0) {
       try {
-        const parsed = JSON.parse(liveUpdates[liveUpdates.length - 1].text) as LiveAlert;
-        if (parsed.type === "alert") setAlerts((prev) => [...prev, parsed]);
+        const parsed = JSON.parse(liveUpdates[liveUpdates.length - 1].text) as LiveUpdate;
+        if (parsed.type === "alert") setAlerts((prev) => [...prev, parsed as LiveAlert]);
+        if (parsed.type === "cta") setCtas((prev) => [...prev, parsed as LiveCTA]);
       } catch { /* ignore */ }
     }
   }, [liveUpdates]);
@@ -350,11 +352,28 @@ function ActiveCallPhone({
 
         {/* Alerts */}
         {alerts.map((alert, i) => (
-          <div key={i} className={`${alert.level === "red" ? "alert-red" : "alert-orange"} rounded-xl px-3 py-2 mb-2 w-full flex items-start gap-2`}>
+          <div key={`alert-${i}`} className={`${alert.level === "red" ? "alert-red" : "alert-orange"} rounded-xl px-3 py-2 mb-2 w-full flex items-start gap-2`}>
             <AlertTriangleIcon size={14} color={alert.level === "red" ? "#CF3302" : "#FF6D39"} className="mt-0.5 shrink-0" />
             <p className="text-[10px]">{alert.reason}</p>
           </div>
         ))}
+
+        {/* Live CTAs from agent */}
+        {ctas.map((cta, i) => {
+          const ctaIcons: Record<string, string> = {
+            reimbursement: "💰", appointment: "📅", provider: "📍",
+            teleconsultation: "🏥", doctor_connect: "👨‍⚕️",
+          };
+          return (
+            <div key={`cta-${i}`} className="w-full bg-[#F0F0FF] rounded-[12px] px-3 py-2.5 mb-2 flex items-center gap-2.5 animate-[fadeInUp_0.3s_ease-out]">
+              <div className="w-7 h-7 rounded-[8px] bg-[#5C59F3] flex items-center justify-center text-xs shrink-0">
+                {ctaIcons[cta.action] || "📋"}
+              </div>
+              <p className="text-[11px] font-semibold text-[#5C59F3] flex-1">{cta.label}</p>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5C59F3" strokeWidth="2.5" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
+            </div>
+          );
+        })}
 
         {/* Transcription — interleaved agent + user */}
         <div className="w-full bg-white rounded-2xl border border-[#ECF1FC] p-3 flex-1 max-h-44 overflow-y-auto">
