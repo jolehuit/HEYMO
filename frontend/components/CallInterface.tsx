@@ -395,7 +395,6 @@ function ActiveCallPhone({
               {isExpanded && hasDetail && (
                 <div className="bg-[#F5F8FE] border border-[#ECF1FC] border-t-0 rounded-b-[12px] px-3 py-2 space-y-1">
                   {data.description ? <p className="text-[10px] text-[#3C3C43] leading-relaxed">{String(data.description)}</p> : null}
-                  {cta.action === "provider" && data.result ? <p className="text-[10px] text-[#3C3C43] leading-relaxed">{String(data.result).slice(0, 250)}</p> : null}
                 </div>
               )}
             </div>
