@@ -27,6 +27,8 @@ export default function PatientActions({ summary, patient, liveCtas = [], onView
   const { locale } = useTranslation();
   const isFr = locale === "fr";
   const [showDoctorChat, setShowDoctorChat] = useState(false);
+  const [expandedItem, setExpandedItem] = useState<string | null>(null);
+  const toggle = (id: string) => setExpandedItem(expandedItem === id ? null : id);
 
   if (showDoctorChat) {
     return <DoctorChat summary={summary} patient={patient} onBack={() => setShowDoctorChat(false)} />;
@@ -84,18 +86,32 @@ export default function PatientActions({ summary, patient, liveCtas = [], onView
                   <p className="text-[13px] font-bold text-[#282830]">{isFr ? "Actions programmées" : "Scheduled actions"}</p>
                 </div>
 
-                {scheduledActions.map((action, i) => (
-                  <div key={i} className="flex items-start gap-2.5 py-2 border-b border-[#F5F5F7] last:border-0">
-                    <span className="text-[14px] mt-0.5">
-                      {action.type === "appointment" ? "📅" : "📞"}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[11px] font-medium text-[#282830]">{action.description}</p>
-                      {action.scheduled_date && <p className="text-[10px] text-[#5C59F3] mt-0.5">📅 {action.scheduled_date}</p>}
-                      {action.sms_sent && <p className="text-[10px] text-[#2AA79C] mt-0.5">✅ SMS {isFr ? "envoyé" : "sent"}</p>}
-                    </div>
-                  </div>
-                ))}
+                {scheduledActions.map((action, i) => {
+                  const id = `action-${i}`;
+                  const isOpen = expandedItem === id;
+                  return (
+                    <button key={i} onClick={() => toggle(id)} className="w-full text-left py-2 border-b border-[#F5F5F7] last:border-0">
+                      <div className="flex items-start gap-2.5">
+                        <span className="text-[14px] mt-0.5">{action.type === "appointment" ? "📅" : "📞"}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-medium text-[#282830]">{action.description}</p>
+                          {action.scheduled_date && <p className="text-[10px] text-[#5C59F3] mt-0.5">📅 {action.scheduled_date}</p>}
+                        </div>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#5C59F3" strokeWidth="2.5" strokeLinecap="round" className={`mt-1 transition-transform ${isOpen ? "rotate-90" : ""}`}><path d="M9 18l6-6-6-6"/></svg>
+                      </div>
+                      {isOpen && (
+                        <div className="ml-7 mt-2 bg-[#F5F8FE] rounded-[10px] p-2.5 space-y-1">
+                          {action.sms_sent && <p className="text-[10px] text-[#2AA79C]">✅ SMS {isFr ? "de rappel envoyé" : "reminder sent"}</p>}
+                          <p className="text-[10px] text-[#5C59F3] font-semibold">
+                            {action.type === "appointment"
+                              ? (isFr ? "📅 Voir les créneaux disponibles" : "📅 View available slots")
+                              : (isFr ? "📞 Rappel programmé" : "📞 Callback scheduled")}
+                          </p>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             );
           })()}
@@ -137,12 +153,18 @@ export default function PatientActions({ summary, patient, liveCtas = [], onView
                 const result = d.result ? String(d.result) : "";
                 const specialty = d.specialty ? String(d.specialty) : "";
                 const location = d.location ? String(d.location) : "";
+                const id = `provider-${i}`;
+                const isOpen = expandedItem === id;
                 return (
-                  <div key={`linkup-${i}`} className="bg-[#F0F0FF] rounded-[12px] p-2.5 mb-2">
-                    <p className="text-[11px] font-bold text-[#5C59F3]">{cta.label}</p>
-                    {result && <p className="text-[10px] text-[#3C3C43] leading-relaxed mt-1">{result.slice(0, 250)}{result.length > 250 ? "..." : ""}</p>}
-                    {!result && specialty && <p className="text-[10px] text-[#8E8E93] mt-0.5">{specialty} — {location}</p>}
-                  </div>
+                  <button key={`linkup-${i}`} onClick={() => toggle(id)} className="w-full text-left bg-[#F0F0FF] rounded-[12px] p-2.5 mb-2 active:scale-[0.98] transition-transform">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-bold text-[#5C59F3]">{cta.label}</p>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#5C59F3" strokeWidth="2.5" strokeLinecap="round" className={`transition-transform ${isOpen ? "rotate-90" : ""}`}><path d="M9 18l6-6-6-6"/></svg>
+                    </div>
+                    {!isOpen && !result && specialty && <p className="text-[10px] text-[#8E8E93] mt-0.5">{specialty} — {location}</p>}
+                    {isOpen && result && <p className="text-[10px] text-[#3C3C43] leading-relaxed mt-1.5">{result}</p>}
+                    {isOpen && !result && specialty && <p className="text-[10px] text-[#8E8E93] mt-1.5">{specialty} — {location}</p>}
+                  </button>
                 );
               })}
 
@@ -201,12 +223,29 @@ export default function PatientActions({ summary, patient, liveCtas = [], onView
           {activeMeds.length > 0 && (
             <div className="bg-white rounded-[16px] border border-[#F0F0F2] p-3.5 shadow-sm">
               <p className="text-[13px] font-bold text-[#282830] mb-2">💊 {isFr ? "Médicaments en cours" : "Current medications"}</p>
-              {activeMeds.map((med, i) => (
-                <div key={i} className="flex items-center justify-between py-1.5 border-b border-[#F5F5F7] last:border-0">
-                  <p className="text-[11px] text-[#282830]">{med.name}</p>
-                  {med.remaining_days !== undefined && <span className="text-[10px] text-[#8E8E93]">{med.remaining_days}j</span>}
-                </div>
-              ))}
+              {activeMeds.map((med, i) => {
+                const id = `med-${i}`;
+                const isOpen = expandedItem === id;
+                const patientMed = patient.medications?.find((m) => m.name === med.name);
+                return (
+                  <button key={i} onClick={() => toggle(id)} className="w-full text-left py-1.5 border-b border-[#F5F5F7] last:border-0">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] text-[#282830]">{med.name}</p>
+                      <div className="flex items-center gap-1.5">
+                        {med.remaining_days !== undefined && <span className="text-[10px] text-[#8E8E93]">{med.remaining_days}j</span>}
+                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#9DA3BA" strokeWidth="2.5" strokeLinecap="round" className={`transition-transform ${isOpen ? "rotate-90" : ""}`}><path d="M9 18l6-6-6-6"/></svg>
+                      </div>
+                    </div>
+                    {isOpen && (
+                      <div className="mt-1.5 bg-[#F5F8FE] rounded-[8px] p-2 space-y-0.5">
+                        {patientMed && <p className="text-[10px] text-[#3C3C43]">{patientMed.dosage}</p>}
+                        {patientMed && <p className="text-[10px] text-[#8E8E93]">{patientMed.frequency}</p>}
+                        {med.compliance && <p className="text-[10px] text-[#2AA79C]">{isFr ? "Observance" : "Compliance"}: {med.compliance}</p>}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
 
