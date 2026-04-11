@@ -9,6 +9,7 @@
     "recent_event": {
       "type": "hospitalization",
       "description": "Right knee arthroscopy",
+      "description_fr": "arthroscopie du genou droit",
       "date": "2026-03-26",
       "provider": "Clinique du Sport Paris",
       "followup_required": "Surgeon follow-up before April 25",
@@ -46,6 +47,7 @@
     "recent_event": {
       "type": "consultation",
       "description": "Type 2 diabetes follow-up with endocrinologist",
+      "description_fr": "suivi diabète de type 2 chez l'endocrinologue",
       "date": "2026-04-02",
       "provider": "Dr. Laurent Moreau, Endocrinologist",
       "followup_required": "Blood test (HbA1c) before May 15, next consult May 20",
@@ -90,6 +92,7 @@
     "recent_event": {
       "type": "pregnancy_followup",
       "description": "Second trimester pregnancy check-up (22 weeks)",
+      "description_fr": "suivi de grossesse du deuxième trimestre, vingt-deux semaines",
       "date": "2026-04-05",
       "provider": "Dr. Marie Lefevre, Obstetrician-Gynecologist",
       "followup_required": "Morphology ultrasound before April 20, glucose tolerance test before April 30",

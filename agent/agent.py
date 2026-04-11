@@ -1,18 +1,32 @@
 """
-Alan Care Call — Voice AI Agent (BOILERPLATE)
+HeyMo — Voice AI Agent for Alan health follow-up calls
 
-This is the skeleton. It runs out of the box with stubs.
-Each TODO is tagged with the dev who owns it.
-
-Run locally:  python agent.py console
+Run locally:  uv run agent.py dev
 Deploy:       lk agent create --secrets MISTRAL_API_KEY=xxx,LINKUP_API_KEY=xxx
-
-Grep all tasks:  grep -rn "TODO" agent/
 """
 
+import asyncio
 import json
 import logging
+import os
 from datetime import datetime
+
+FRENCH_MONTHS = [
+    "", "janvier", "février", "mars", "avril", "mai", "juin",
+    "juillet", "août", "septembre", "octobre", "novembre", "décembre",
+]
+
+
+def format_date_fr(iso_date: str) -> str:
+    """'2026-03-26' → '26 mars'"""
+    d = datetime.strptime(iso_date, "%Y-%m-%d")
+    return f"{d.day} {FRENCH_MONTHS[d.month]}"
+
+
+MAX_CALL_DURATION = 180  # 3 minutes max for demo
+
+from dotenv import load_dotenv
+load_dotenv()
 
 from livekit.agents import (
     Agent,
@@ -25,13 +39,17 @@ from livekit.agents import (
     cli,
     function_tool,
 )
-from livekit.plugins import mistralai, silero
+from livekit.agents import room_io
+from livekit.plugins import lemonslice, mistralai, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
+
+# Avatar image — hosted in the repo (frontend/public/maude.png)
+AVATAR_IMAGE_URL = "https://raw.githubusercontent.com/jolehuit/HEYMO/claude/voice-ai-health-followup-YTtvx/frontend/public/maude.png"
 
 from playbook import build_system_prompt
 from tools import load_patient, get_wearable_data
 
-logger = logging.getLogger("alan-agent")
+logger = logging.getLogger("heymo-agent")
 logger.setLevel(logging.INFO)
 
 
@@ -54,15 +72,17 @@ def prewarm(proc: JobProcess):
 class AlanHealthAgent(Agent):
     """Alan health follow-up voice agent."""
 
-    def __init__(self, patient: dict, wearable_data: dict):
+    def __init__(self, patient: dict, wearable_data: dict, lang: str = "en"):
         self._patient = patient
         self._wearable_data = wearable_data
         self._call_start = datetime.now()
         self._alert_level = "green"
         self._actions: list[dict] = []
         self._reimbursement_discussed: dict | None = None
+        self._room = None  # Set in entrypoint after agent creation
+        self._lang = lang
 
-        instructions = build_system_prompt(patient, wearable_data)
+        instructions = build_system_prompt(patient, wearable_data, language=lang)
         super().__init__(instructions=instructions)
 
     # ------------------------------------------------------------------
@@ -121,9 +141,11 @@ class AlanHealthAgent(Agent):
         self._actions.append({"type": "flag", "description": reason})
         logger.warning(f"ALERT [{level}]: {reason} for {self._patient['name']}")
 
-        # TODO(Dev1): Send live alert to frontend via text stream
-        # The frontend already listens on topic "live-updates" (see CallInterface.tsx)
-        # Docs: search "send_text" in ARCHITECTURE.md → Flux 4
+        if self._room:
+            await self._room.local_participant.send_text(
+                json.dumps({"type": "alert", "level": level, "reason": reason}),
+                topic="live-updates",
+            )
 
         return f"Alert flagged as {level}: {reason}"
 
@@ -164,22 +186,79 @@ class AlanHealthAgent(Agent):
 # ==========================================================================
 
 async def generate_summary(agent: AlanHealthAgent) -> dict:
-    """Generate a structured post-call summary."""
+    """Generate a structured post-call summary using LLM analysis of the conversation."""
     duration = (datetime.now() - agent._call_start).total_seconds()
 
-    # TODO(Dev1): Make this smarter — use the LLM to summarize the actual
-    # conversation from session.history, instead of just returning static data.
-    # For now, returns a valid summary with the data we have.
+    # --- Build transcript from conversation history ---
+    # session.history → ChatContext, .messages → list[ChatMessage]
+    # ChatMessage.text_content is a @property returning str | None
+    # ChatRole is Literal['developer', 'system', 'user', 'assistant']
+    transcript_lines = []
+    for msg in agent.session.history.messages:
+        text = msg.text_content
+        if msg.role in ("user", "assistant") and text:
+            speaker = agent._patient["name"].split()[0] if msg.role == "user" else "HeyMo"
+            transcript_lines.append(f"{speaker}: {text}")
 
+    transcript = "\n".join(transcript_lines)
+
+    # --- Use LLM to analyze conversation ---
+    patient_state = {"pain_level": "unknown", "mood": "unknown", "general": "discussed during call"}
+    call_summary = f"Post-{agent._patient['recent_event']['type']} follow-up call."
+
+    if transcript:
+        try:
+            from mistralai import Mistral
+
+            client = Mistral(api_key=os.environ.get("MISTRAL_API_KEY"))
+            response = await client.chat.complete_async(
+                model="mistral-small-latest",
+                messages=[{
+                    "role": "user",
+                    "content": (
+                        "Analyze this health follow-up call transcript. "
+                        "Extract the following in JSON:\n"
+                        '- "pain_level": patient\'s pain (none / mild / moderate / severe / unknown)\n'
+                        '- "mood": emotional state (positive / neutral / anxious / distressed / unknown)\n'
+                        '- "general": one sentence on overall condition\n'
+                        '- "summary": 1-2 sentence summary of the call\n'
+                        '- "medication_compliance": object with medication names as keys and '
+                        '"full" / "partial" / "none" / "unknown" as values\n\n'
+                        f"Patient: {agent._patient['name']}, "
+                        f"Event: {agent._patient['recent_event']['description']}\n\n"
+                        f"Transcript:\n{transcript}\n\n"
+                        "Respond with JSON only, no markdown."
+                    ),
+                }],
+                response_format={"type": "json_object"},
+            )
+            analysis = json.loads(response.choices[0].message.content)
+            patient_state = {
+                "pain_level": analysis.get("pain_level", "unknown"),
+                "mood": analysis.get("mood", "unknown"),
+                "general": analysis.get("general", "discussed during call"),
+            }
+            call_summary = analysis.get("summary", call_summary)
+            # Update medication compliance from LLM analysis
+            llm_compliance = analysis.get("medication_compliance", {})
+        except Exception as e:
+            logger.error(f"LLM summary analysis failed, using defaults: {e}")
+            llm_compliance = {}
+    else:
+        llm_compliance = {}
+
+    # --- Build medication status ---
     meds_status = []
     for med in agent._patient["medications"]:
+        compliance = llm_compliance.get(med["name"], "full")
         meds_status.append({
             "name": med["name"],
             "status": "completed" if med["remaining_days"] == 0 else "in_progress",
-            "compliance": "full",
+            "compliance": compliance,
             **({"remaining_days": med["remaining_days"]} if med["remaining_days"] > 0 else {}),
         })
 
+    # --- Build wearable highlights ---
     wearable_highlights = {}
     if agent._wearable_data:
         wd = agent._wearable_data
@@ -196,8 +275,8 @@ async def generate_summary(agent: AlanHealthAgent) -> dict:
         "date": datetime.now().strftime("%Y-%m-%d"),
         "duration_seconds": int(duration),
         "alert_level": agent._alert_level,
-        "summary": f"Post-{agent._patient['recent_event']['type']} follow-up call.",
-        "patient_state": {"pain_level": "unknown", "mood": "unknown", "general": "discussed during call"},
+        "summary": call_summary,
+        "patient_state": patient_state,
         "medications_status": meds_status,
         "wearable_highlights": wearable_highlights,
         "actions": agent._actions,
@@ -222,25 +301,25 @@ async def entrypoint(ctx: JobContext):
     await ctx.connect()
     participant = await ctx.wait_for_participant()
 
-    # --- Read patient selection from frontend ---
+    # --- Read patient selection + language from frontend ---
     patient_id = participant.attributes.get("patient_id", "sophie_martin")
-    logger.info(f"Starting call for patient: {patient_id}")
+    lang = participant.attributes.get("language", "en")  # "en" or "fr" — default "en" for testing
+    logger.info(f"Starting call for patient: {patient_id}, language: {lang}")
 
     # --- Load patient data + wearable data ---
     patient = load_patient(patient_id)
     wearable_data = await get_wearable_data(patient_id, patient.get("thryve_user_id", ""))
 
     # --- Create agent with full context ---
-    agent = AlanHealthAgent(patient=patient, wearable_data=wearable_data)
+    agent = AlanHealthAgent(patient=patient, wearable_data=wearable_data, lang=lang)
+    agent._room = ctx.room
 
     # --- Configure voice pipeline ---
-    # TODO(Dev1): Test voice quality. If en_paul_confident sounds bad,
-    # try other voices (see ARCHITECTURE.md → Modèles Mistral for the full list)
-    # Last resort: ElevenLabs TTS (see docs.livekit.io/agents/integrations/tts/elevenlabs)
+    tts_voice = "fr_marie_neutral" if lang == "fr" else "gb_jane_confident"
     session = AgentSession(
         stt=mistralai.STT(model="voxtral-mini-transcribe-realtime-2602"),
         llm=mistralai.LLM(model="mistral-small-latest"),
-        tts=mistralai.TTS(voice="en_paul_confident"),
+        tts=mistralai.TTS(voice=tts_voice),
         vad=ctx.proc.userdata["vad"],
         turn_detection=MultilingualModel(),
     )
@@ -269,19 +348,51 @@ async def entrypoint(ctx: JobContext):
 
     ctx.add_shutdown_callback(lambda: send_summary())
 
-    # --- Start agent ---
-    await session.start(agent=agent, room=ctx.room)
+    # --- Start avatar (LemonSlice) ---
+    avatar = lemonslice.AvatarSession(
+        agent_image_url=AVATAR_IMAGE_URL,
+        agent_prompt="Be warm and expressive. Nod when listening. Smile gently.",
+    )
+    await avatar.start(session, room=ctx.room)
+
+    # --- Start agent (audio goes to avatar, not directly to room) ---
+    await session.start(
+        agent=agent,
+        room=ctx.room,
+        room_options=room_io.RoomOptions(audio_output=False),
+    )
+
+    # --- Auto-end call after MAX_CALL_DURATION ---
+    async def auto_hangup():
+        await asyncio.sleep(MAX_CALL_DURATION)
+        logger.info("Max call duration reached, wrapping up")
+        await session.say(
+            "Merci pour cet échange. N'hésitez pas à rappeler si besoin. Bonne journée !"
+            if lang == "fr" else
+            "Thank you for this chat. Don't hesitate to call back if needed. Have a great day!"
+        )
+        await send_summary()
+
+    asyncio.create_task(auto_hangup())
 
     # --- Opening greeting ---
-    # TODO(NonTech): Adjust the greeting tone/wording in playbook.py
     first_name = patient["name"].split()[0]
-    event_desc = patient["recent_event"]["description"].lower()
-    event_date = patient["recent_event"]["date"]
-    await session.say(
-        f"Hi {first_name}, this is Alan, your health partner. "
-        f"I'm calling to check in after your {event_desc} on {event_date}. "
-        f"How have you been feeling?"
-    )
+    if lang == "fr":
+        event_desc = patient["recent_event"].get("description_fr", patient["recent_event"]["description"]).lower()
+        event_date = format_date_fr(patient["recent_event"]["date"])
+        await session.say(
+            f"Bonjour {first_name}, c'est HeyMo, votre assistant santé Alan. "
+            f"Je vous appelle pour prendre de vos nouvelles après votre {event_desc} du {event_date}. "
+            f"Comment vous sentez-vous ?"
+        )
+    else:
+        event_desc = patient["recent_event"]["description"].lower()
+        event_date = patient["recent_event"]["date"]
+        await session.say(
+            f"Hi {first_name}, this is HeyMo, your Alan health assistant. "
+            f"I'm calling to check in after your {event_desc} on {event_date}. "
+            f"How have you been feeling?"
+        )
 
 
 if __name__ == "__main__":

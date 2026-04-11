@@ -1,4 +1,4 @@
-livekit-agents[mistralai,silero,turn-detector]~=1.5
+livekit-agents[mistralai,silero,turn-detector,lemonslice]~=1.5
 linkup-sdk>=0.13.0,<1.0
 httpx>=0.23.0
 python-dotenv>=1.0.0
