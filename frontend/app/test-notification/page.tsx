@@ -11,6 +11,7 @@ import { I18nProvider } from "@/lib/i18n";
 import LanguageSelector from "@/components/LanguageSelector";
 import PhoneNotification from "@/components/PhoneNotification";
 import PatientActions from "@/components/PatientActions";
+import { PATIENTS } from "@/lib/patients";
 import Dashboard from "@/components/Dashboard";
 
 const MOCK_SUMMARY: CallSummary = {
@@ -72,6 +73,7 @@ export default function TestNotification() {
         {step === "actions" && (
           <PatientActions
             summary={MOCK_SUMMARY}
+            patient={PATIENTS[0]}
             onViewDashboard={() => setStep("dashboard")}
             onBack={() => setStep("notification")}
           />

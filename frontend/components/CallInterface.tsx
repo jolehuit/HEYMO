@@ -143,6 +143,7 @@ export default function CallInterface({ patient, onBack, onSummaryGenerated }: C
       return (
         <PatientActions
           summary={summary}
+          patient={patient}
           onViewDashboard={() => setPostCallStep("dashboard")}
           onBack={onBack}
         />
@@ -196,10 +197,11 @@ function ActiveCallPhone({
   onEndCall: () => void;
   onTranscriptionUpdate: (texts: string[]) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { state, audioTrack, videoTrack, agentTranscriptions } = useVoiceAssistant();
   const [alerts, setAlerts] = useState<LiveAlert[]>([]);
   const [callDuration, setCallDuration] = useState(0);
+  const [userTexts, setUserTexts] = useState<{ text: string; time: number }[]>([]);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 
   const { textStreams: liveUpdates } = useTextStream("live-updates");
@@ -208,6 +210,35 @@ function ActiveCallPhone({
     onTranscriptionUpdate(agentTranscriptions.map((t) => t.text));
   }, [agentTranscriptions, onTranscriptionUpdate]);
 
+  // Browser speech recognition for user's voice
+  useEffect(() => {
+    const SpeechRecognition = (window as unknown as Record<string, unknown>).SpeechRecognition || (window as unknown as Record<string, unknown>).webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const recognition = new (SpeechRecognition as any)();
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.lang = locale === "fr" ? "fr-FR" : "en-US";
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recognition.onresult = (event: any) => {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          const text = event.results[i][0].transcript.trim();
+          if (text) {
+            setUserTexts((prev) => [...prev, { text, time: Date.now() }]);
+          }
+        }
+      }
+    };
+
+    recognition.onend = () => { try { recognition.start(); } catch { /* ignore */ } };
+
+    try { recognition.start(); } catch { /* ignore */ }
+    return () => { try { recognition.stop(); } catch { /* ignore */ } };
+  }, [locale]);
+
   useEffect(() => {
     const interval = setInterval(() => setCallDuration((d) => d + 1), 1000);
     return () => clearInterval(interval);
@@ -215,7 +246,7 @@ function ActiveCallPhone({
 
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [agentTranscriptions]);
+  }, [agentTranscriptions, userTexts]);
 
   useEffect(() => {
     if (liveUpdates.length > 0) {
@@ -325,19 +356,38 @@ function ActiveCallPhone({
           </div>
         ))}
 
-        {/* Transcription */}
+        {/* Transcription — interleaved agent + user */}
         <div className="w-full bg-white rounded-2xl border border-[#ECF1FC] p-3 flex-1 max-h-44 overflow-y-auto">
           <h3 className="text-[9px] font-semibold text-[#9DA3BA] uppercase tracking-wider mb-2">{t("call.conversation")}</h3>
           <div className="space-y-2">
-            {agentTranscriptions.map((seg, i) => (
-              <div key={i} className="flex gap-2 items-start">
-                <Image src="/maude.png" alt="Maude" width={18} height={18} style={{ width: 18, height: 18 }} className="rounded-full shrink-0 mt-0.5" />
-                <p className="text-[11px] text-[#282830] bg-[#F0F3FF] rounded-xl rounded-tl-none px-2.5 py-1.5 leading-snug">{seg.text}</p>
-              </div>
-            ))}
-            {agentTranscriptions.length === 0 && (
-              <p className="text-[#9DA3BA] text-[10px] italic text-center py-2">{t("call.conversation_placeholder")}</p>
-            )}
+            {(() => {
+              // Merge agent + user messages by approximate time order
+              const agentMsgs = agentTranscriptions.map((seg, i) => ({
+                role: "agent" as const, text: seg.text, order: i * 2,
+              }));
+              const userMsgs = userTexts.map((u, i) => ({
+                role: "user" as const, text: u.text, order: i * 2 + 1,
+              }));
+              const allMsgs = [...agentMsgs, ...userMsgs].sort((a, b) => a.order - b.order);
+
+              if (allMsgs.length === 0) {
+                return <p className="text-[#9DA3BA] text-[10px] italic text-center py-2">{t("call.conversation_placeholder")}</p>;
+              }
+
+              return allMsgs.map((msg, i) => (
+                msg.role === "agent" ? (
+                  <div key={`a-${i}`} className="flex gap-2 items-start">
+                    <Image src="/maude.png" alt="Maude" width={18} height={18} style={{ width: 18, height: 18 }} className="rounded-full shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-[#282830] bg-[#F0F3FF] rounded-xl rounded-tl-none px-2.5 py-1.5 leading-snug">{msg.text}</p>
+                  </div>
+                ) : (
+                  <div key={`u-${i}`} className="flex gap-2 items-start justify-end">
+                    <p className="text-[11px] text-[#282830] bg-[#EBFAF9] rounded-xl rounded-tr-none px-2.5 py-1.5 leading-snug">{msg.text}</p>
+                    <div className="w-[18px] h-[18px] rounded-full bg-gradient-to-br from-[#FFE0C2] to-[#FECBA1] flex items-center justify-center text-[8px] shrink-0 mt-0.5">👩</div>
+                  </div>
+                )
+              ));
+            })()}
             <div ref={transcriptEndRef} />
           </div>
         </div>

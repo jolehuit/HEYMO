@@ -26,6 +26,8 @@ export interface PatientProfile {
   followupBooked?: boolean;
   medications?: PatientMedication[];
   communicationStyle?: string;
+  location?: string;
+  nearbyDoctors?: { name: string; specialty: string; distance: string; sector: string; available: boolean }[];
 }
 
 export const PATIENTS: PatientProfile[] = [
@@ -43,9 +45,16 @@ export const PATIENTS: PatientProfile[] = [
     followupRequired: "Surgeon follow-up before April 25",
     followupBooked: false,
     communicationStyle: "Needs reassurance",
+    location: "Paris 15e",
     medications: [
       { name: "Ketoprofen 100mg", dosage: "1 tablet morning & evening", frequency: "twice daily", remaining_days: 0 },
       { name: "Lovenox 4000 IU", dosage: "1 injection/day", frequency: "once daily", remaining_days: 7 },
+    ],
+    nearbyDoctors: [
+      { name: "Dr. Marie Lavigne", specialty: "Généraliste", distance: "73m", sector: "Secteur 1", available: true },
+      { name: "Dr. Arnaud Cocaul", specialty: "Généraliste", distance: "73m", sector: "Secteur 1", available: true },
+      { name: "Dr. Philippe Renard", specialty: "Chirurgien orthopédiste", distance: "450m", sector: "Secteur 2", available: true },
+      { name: "Cabinet Mouvement", specialty: "Kinésithérapeute", distance: "320m", sector: "Conventionné", available: true },
     ],
   },
   {

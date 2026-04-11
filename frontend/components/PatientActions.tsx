@@ -1,6 +1,6 @@
 /**
  * Patient actions page — post-call action items in Alan app style
- * Designed to fit inside the iPhone frame mockup
+ * Shows: summary, nearby doctors, live chat, appointments, medications, Alan CTAs
  *
  * Owner: Dev 3
  */
@@ -9,11 +9,13 @@
 
 import Image from "next/image";
 import { CallSummary } from "@/lib/types";
+import { PatientProfile } from "@/lib/patients";
 import { useTranslation } from "@/lib/i18n";
 import PhoneFrame from "./PhoneFrame";
 
 interface PatientActionsProps {
   summary: CallSummary;
+  patient: PatientProfile;
   onViewDashboard: () => void;
   onBack: () => void;
 }
@@ -36,10 +38,11 @@ const MOCK_SLOTS_EN = [
   { day: "Mon 21", time: "09:00", ok: true },
 ];
 
-export default function PatientActions({ summary, onViewDashboard, onBack }: PatientActionsProps) {
+export default function PatientActions({ summary, patient, onViewDashboard, onBack }: PatientActionsProps) {
   const { locale } = useTranslation();
   const isFr = locale === "fr";
   const slots = isFr ? MOCK_SLOTS_FR : MOCK_SLOTS_EN;
+  const doctors = patient.nearbyDoctors || [];
 
   const appointmentActions = summary.actions.filter((a) => a.type === "appointment");
   const otherActions = summary.actions.filter((a) => a.type !== "appointment");
@@ -48,13 +51,13 @@ export default function PatientActions({ summary, onViewDashboard, onBack }: Pat
   return (
     <PhoneFrame>
       <div className="bg-[#FFFCF5] h-full flex flex-col">
-        {/* Header — Alan app style */}
+        {/* Header */}
         <div className="bg-white border-b border-[#F0F0F2] px-4 pt-10 pb-2.5 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <Image src="/maude.png" alt="Maude" width={26} height={26} style={{ width: 26, height: 26 }} className="rounded-full" />
             <div>
-              <p className="text-[14px] font-bold text-[#282830]">{isFr ? "Vos actions" : "Your actions"}</p>
-              <p className="text-[10px] text-[#8E8E93]">{isFr ? "Suite à votre appel avec Maude" : "Following your call with Maude"}</p>
+              <p className="text-[14px] font-bold text-[#282830]">{isFr ? "Suite de votre appel" : "After your call"}</p>
+              <p className="text-[10px] text-[#8E8E93]">{isFr ? "avec Maude · Alan" : "with Maude · Alan"}</p>
             </div>
           </div>
           <button onClick={onBack} className="text-[12px] text-[#5C59F3] font-semibold">{isFr ? "Accueil" : "Home"}</button>
@@ -63,19 +66,83 @@ export default function PatientActions({ summary, onViewDashboard, onBack }: Pat
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
 
-          {/* Maude summary card */}
-          <div className="bg-white rounded-[16px] border border-[#F0F0F2] p-3.5 flex gap-3 shadow-sm">
-            <Image src="/maude.png" alt="Maude" width={36} height={36} style={{ width: 36, height: 36 }} className="rounded-full shrink-0 mt-0.5" />
+          {/* Maude summary */}
+          <div className="bg-white rounded-[16px] border border-[#F0F0F2] p-3 flex gap-2.5 shadow-sm">
+            <Image src="/maude.png" alt="Maude" width={32} height={32} style={{ width: 32, height: 32 }} className="rounded-full shrink-0 mt-0.5" />
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold text-[#5C59F3] mb-0.5">{isFr ? "Résumé de Maude" : "Maude's summary"}</p>
-              <p className="text-[11px] text-[#3C3C43] leading-relaxed line-clamp-3">{summary.summary}</p>
+              <p className="text-[11px] font-semibold text-[#5C59F3] mb-0.5">Maude</p>
+              <p className="text-[11px] text-[#3C3C43] leading-relaxed">{summary.summary}</p>
             </div>
           </div>
 
-          {/* Appointment booking */}
+          {/* ─── Live chat with doctor ─── */}
+          <div className="bg-gradient-to-r from-[#5C59F3] to-[#2F33A8] rounded-[16px] p-3.5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                <Image src="/maude.png" alt="Doctor" width={32} height={32} style={{ width: 32, height: 32 }} className="rounded-full" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[12px] font-bold text-white">{isFr ? "Parler à un médecin" : "Talk to a doctor"}</p>
+                <p className="text-[10px] text-white/70 leading-snug">
+                  {isFr ? "Un médecin a le contexte de votre appel. Disponible maintenant." : "A doctor has your call context. Available now."}
+                </p>
+              </div>
+            </div>
+            <button className="w-full mt-3 py-2 bg-white rounded-[10px] text-[12px] font-semibold text-[#5C59F3] active:scale-95 transition-transform">
+              {isFr ? "💬 Démarrer le chat" : "💬 Start chat"}
+            </button>
+          </div>
+
+          {/* ─── Nearby doctors (Alan Map) ─── */}
+          {doctors.length > 0 && (
+            <div className="bg-white rounded-[16px] border border-[#F0F0F2] p-3.5 shadow-sm">
+              <div className="flex items-center justify-between mb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-[8px] bg-[#EBFAF9] flex items-center justify-center">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="10" r="3" stroke="#2AA79C" strokeWidth="2"/><path d="M12 2C7.6 2 4 5.4 4 9.5 4 16 12 22 12 22s8-6 8-12.5C20 5.4 16.4 2 12 2z" stroke="#2AA79C" strokeWidth="1.5"/></svg>
+                  </div>
+                  <p className="text-[13px] font-bold text-[#282830]">{isFr ? "Professionnels proches" : "Nearby professionals"}</p>
+                </div>
+                <span className="text-[10px] text-[#5C59F3] font-semibold">{patient.location}</span>
+              </div>
+
+              {/* Map placeholder */}
+              <div className="w-full h-[80px] rounded-[12px] bg-[#E8F5E9] mb-2.5 flex items-center justify-center relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-b from-[#D4E8D0] to-[#E8F5E9]" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-[#5C59F3] border-2 border-white shadow flex items-center justify-center">
+                  <div className="w-2 h-2 rounded-full bg-white" />
+                </div>
+                <span className="absolute bottom-1 left-2 text-[8px] text-[#8E8E93]">🗺️ Alan Map</span>
+              </div>
+
+              {/* Doctor cards — horizontal scroll like the app */}
+              <div className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-1">
+                {doctors.map((doc, i) => (
+                  <div key={i} className="bg-white rounded-[12px] border border-[#F0F0F2] p-2.5 min-w-[140px] shrink-0">
+                    <p className="text-[11px] font-bold text-[#282830] uppercase">{doc.name}</p>
+                    <p className="text-[10px] text-[#8E8E93]">{doc.specialty}</p>
+                    <div className="flex items-center gap-2 mt-1.5 text-[9px] text-[#8E8E93]">
+                      <span>📍 {doc.distance}</span>
+                      <span>🏥 {doc.sector}</span>
+                    </div>
+                    {doc.available && (
+                      <button className="w-full mt-2 py-1.5 bg-[#F0F0FF] rounded-[8px] text-[10px] font-semibold text-[#5C59F3] active:scale-95 transition-transform">
+                        {isFr ? "Prendre RDV" : "Book"}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <p className="text-[10px] text-[#5C59F3] font-semibold mt-2 text-center">
+                {isFr ? "📍 Voir plus sur Alan Map >" : "📍 Show more on Alan Map >"}
+              </p>
+            </div>
+          )}
+
+          {/* ─── Appointment slots ─── */}
           {appointmentActions.length > 0 && (
             <div className="bg-white rounded-[16px] border border-[#F0F0F2] p-3.5 shadow-sm">
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-2 mb-2.5">
                 <div className="w-7 h-7 rounded-[8px] bg-[#5C59F3] flex items-center justify-center">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" stroke="white" strokeWidth="2"/><path d="M16 2v4M8 2v4M3 10h18" stroke="white" strokeWidth="2" strokeLinecap="round"/></svg>
                 </div>
@@ -84,11 +151,7 @@ export default function PatientActions({ summary, onViewDashboard, onBack }: Pat
 
               {appointmentActions.map((action, i) => (
                 <div key={i}>
-                  <p className="text-[11px] text-[#3C3C43] mb-2.5">{action.description}</p>
-
-                  <p className="text-[9px] font-semibold text-[#8E8E93] uppercase tracking-wider mb-1.5">
-                    {isFr ? "Créneaux disponibles" : "Available slots"}
-                  </p>
+                  <p className="text-[11px] text-[#3C3C43] mb-2">{action.description}</p>
                   <div className="grid grid-cols-3 gap-1.5">
                     {slots.map((slot, j) => (
                       <button key={j} disabled={!slot.ok}
@@ -100,90 +163,74 @@ export default function PatientActions({ summary, onViewDashboard, onBack }: Pat
                       </button>
                     ))}
                   </div>
-
                   {action.sms_sent && (
-                    <p className="text-[10px] text-[#2AA79C] mt-2 flex items-center gap-1">
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#2AA79C" strokeWidth="2"/><path d="M8 12l3 3 5-5" stroke="#2AA79C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      {isFr ? "SMS de rappel envoyé" : "Reminder SMS sent"}
-                    </p>
+                    <p className="text-[10px] text-[#2AA79C] mt-2 flex items-center gap-1">✅ {isFr ? "SMS rappel envoyé" : "Reminder SMS sent"}</p>
                   )}
                 </div>
               ))}
             </div>
           )}
 
-          {/* Other actions */}
+          {/* ─── Other actions ─── */}
           {otherActions.length > 0 && (
             <div className="bg-white rounded-[16px] border border-[#F0F0F2] p-3.5 shadow-sm">
-              <div className="flex items-center gap-2 mb-2.5">
-                <div className="w-7 h-7 rounded-[8px] bg-[#F0F3FF] flex items-center justify-center">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#5C59F3" strokeWidth="2"/><path d="M8 12l3 3 5-5" stroke="#5C59F3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                </div>
-                <p className="text-[13px] font-bold text-[#282830]">{isFr ? "Autres actions" : "Other actions"}</p>
-              </div>
+              <p className="text-[13px] font-bold text-[#282830] mb-2">{isFr ? "Actions" : "Actions"}</p>
               {otherActions.map((action, i) => (
-                <div key={i} className="flex items-start gap-2.5 py-2 border-b border-[#F5F5F7] last:border-0">
-                  <div className="w-5 h-5 rounded-full bg-[#F0F0FF] flex items-center justify-center shrink-0 mt-0.5">
-                    {action.type === "followup_call" ? (
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="#5C59F3"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
-                    ) : (
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" stroke="#FF6D39" strokeWidth="2"/><line x1="4" y1="22" x2="4" y2="15" stroke="#FF6D39" strokeWidth="2"/></svg>
-                    )}
-                  </div>
+                <div key={i} className="flex items-start gap-2 py-1.5 border-b border-[#F5F5F7] last:border-0">
+                  <span className="text-[12px] mt-0.5">
+                    {action.type === "followup_call" ? "📞" :
+                     action.type === "sms_sent" ? "💬" :
+                     action.type === "teleconsultation_requested" ? "🏥" :
+                     action.type === "doctor_connect" ? "👨‍⚕️" :
+                     action.type === "provider_search" ? "📍" : "🚩"}
+                  </span>
                   <div className="min-w-0">
                     <p className="text-[11px] text-[#282830]">{action.description}</p>
-                    {action.scheduled_date && (
-                      <p className="text-[10px] text-[#8E8E93] mt-0.5">{isFr ? "Prévu" : "Scheduled"} : {action.scheduled_date}</p>
-                    )}
+                    {action.scheduled_date && <p className="text-[10px] text-[#8E8E93]">{action.scheduled_date}</p>}
                   </div>
                 </div>
               ))}
             </div>
           )}
 
-          {/* Medications */}
+          {/* ─── Medications ─── */}
           {activeMeds.length > 0 && (
             <div className="bg-white rounded-[16px] border border-[#F0F0F2] p-3.5 shadow-sm">
-              <div className="flex items-center gap-2 mb-2.5">
-                <div className="w-7 h-7 rounded-[8px] bg-[#EBFAF9] flex items-center justify-center">
-                  <span className="text-sm">💊</span>
-                </div>
-                <p className="text-[13px] font-bold text-[#282830]">{isFr ? "Médicaments en cours" : "Current medications"}</p>
-              </div>
+              <p className="text-[13px] font-bold text-[#282830] mb-2">💊 {isFr ? "Médicaments" : "Medications"}</p>
               {activeMeds.map((med, i) => (
-                <div key={i} className="flex items-center justify-between py-2 border-b border-[#F5F5F7] last:border-0">
+                <div key={i} className="flex items-center justify-between py-1.5 border-b border-[#F5F5F7] last:border-0">
                   <p className="text-[11px] text-[#282830]">{med.name}</p>
-                  {med.remaining_days !== undefined && (
-                    <span className="text-[10px] text-[#8E8E93] shrink-0 ml-2">{med.remaining_days}j</span>
-                  )}
+                  {med.remaining_days !== undefined && <span className="text-[10px] text-[#8E8E93]">{med.remaining_days}j</span>}
                 </div>
               ))}
             </div>
           )}
 
-          {/* Alan CTAs — app style */}
-          <div className="grid grid-cols-2 gap-2">
-            <button className="bg-white rounded-[16px] border border-[#F0F0F2] p-3 flex flex-col items-center gap-2 shadow-sm active:scale-95 transition-transform">
-              <div className="w-10 h-10 rounded-[12px] bg-[#5C59F3] flex items-center justify-center">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+          {/* ─── Quick Alan CTAs ─── */}
+          <div className="grid grid-cols-3 gap-2">
+            <button className="bg-white rounded-[14px] border border-[#F0F0F2] p-2.5 flex flex-col items-center gap-1.5 shadow-sm active:scale-95 transition-transform">
+              <div className="w-9 h-9 rounded-[10px] bg-[#5C59F3] flex items-center justify-center">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
               </div>
-              <p className="text-[11px] font-semibold text-[#282830]">{isFr ? "Téléconsultation" : "Teleconsult"}</p>
-              <p className="text-[9px] text-[#8E8E93] leading-snug text-center">{isFr ? "Parlez à un médecin" : "Talk to a doctor"}</p>
+              <span className="text-[9px] font-medium text-[#282830] text-center leading-tight">{isFr ? "Télé-consult" : "Teleconsult"}</span>
             </button>
-            <button className="bg-white rounded-[16px] border border-[#F0F0F2] p-3 flex flex-col items-center gap-2 shadow-sm active:scale-95 transition-transform">
-              <div className="w-10 h-10 rounded-[12px] bg-[#EBFAF9] flex items-center justify-center">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="10" r="3" stroke="#2AA79C" strokeWidth="2"/><path d="M12 2C7.6 2 4 5.4 4 9.5 4 16 12 22 12 22s8-6 8-12.5C20 5.4 16.4 2 12 2z" stroke="#2AA79C" strokeWidth="1.5"/></svg>
+            <button className="bg-white rounded-[14px] border border-[#F0F0F2] p-2.5 flex flex-col items-center gap-1.5 shadow-sm active:scale-95 transition-transform">
+              <div className="w-9 h-9 rounded-[10px] bg-[#EBFAF9] flex items-center justify-center">
+                <span className="text-base">🗺️</span>
               </div>
-              <p className="text-[11px] font-semibold text-[#282830]">Alan Map</p>
-              <p className="text-[9px] text-[#8E8E93] leading-snug text-center">{isFr ? "Trouver un pro" : "Find a pro"}</p>
+              <span className="text-[9px] font-medium text-[#282830] text-center leading-tight">Alan Map</span>
+            </button>
+            <button className="bg-white rounded-[14px] border border-[#F0F0F2] p-2.5 flex flex-col items-center gap-1.5 shadow-sm active:scale-95 transition-transform">
+              <div className="w-9 h-9 rounded-[10px] bg-[#FFF3E0] flex items-center justify-center">
+                <span className="text-base">💰</span>
+              </div>
+              <span className="text-[9px] font-medium text-[#282830] text-center leading-tight">{isFr ? "Rembourst." : "Claims"}</span>
             </button>
           </div>
 
           {/* Dashboard link */}
           <button onClick={onViewDashboard} className="w-full text-center py-2">
-            <span className="text-[11px] text-[#8E8E93] underline">
-              {isFr ? "Voir le rapport complet (équipe soins)" : "View full report (care team)"}
-            </span>
+            <span className="text-[11px] text-[#8E8E93] underline">{isFr ? "Rapport complet (équipe soins)" : "Full report (care team)"}</span>
           </button>
 
           <div className="h-2" />

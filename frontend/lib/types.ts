@@ -43,7 +43,7 @@ export interface MetricData {
 }
 
 export interface Action {
-  type: "appointment" | "followup_call" | "flag" | "sms_sent";
+  type: "appointment" | "followup_call" | "flag" | "sms_sent" | "teleconsultation_requested" | "doctor_connect" | "provider_search";
   description: string;
   status?: string;
   sms_sent?: boolean;
@@ -65,3 +65,12 @@ export interface LiveAlert {
   level: "orange" | "red";
   reason: string;
 }
+
+export interface LiveCTA {
+  type: "cta";
+  action: "reimbursement" | "appointment" | "provider" | "teleconsultation" | "doctor_connect";
+  label: string;
+  data?: Record<string, unknown>;
+}
+
+export type LiveUpdate = LiveAlert | LiveCTA;
