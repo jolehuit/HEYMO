@@ -23,6 +23,20 @@ def format_date_fr(iso_date: str) -> str:
     return f"{d.day} {FRENCH_MONTHS[d.month]}"
 
 
+ENGLISH_MONTHS = [
+    "", "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+]
+
+
+def format_date_en(iso_date: str) -> str:
+    """'2026-03-26' → 'March 26th'"""
+    d = datetime.strptime(iso_date, "%Y-%m-%d")
+    day = d.day
+    suffix = "th" if 11 <= day <= 13 else {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
+    return f"{ENGLISH_MONTHS[d.month]} {day}{suffix}"
+
+
 MAX_CALL_DURATION = 180  # 3 minutes max for demo
 
 from dotenv import load_dotenv
@@ -725,7 +739,7 @@ async def entrypoint(ctx: JobContext):
         )
     else:
         event_desc = patient["recent_event"]["description"].lower()
-        event_date = patient["recent_event"]["date"]
+        event_date = format_date_en(patient["recent_event"]["date"])
         doctor_part = f" with {doctor_name}" if doctor_name else ""
         greeting = (
             f"Hi {first_name}, Maude from Alan. "
