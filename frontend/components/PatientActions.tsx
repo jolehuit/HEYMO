@@ -69,36 +69,36 @@ export default function PatientActions({ summary, patient, liveCtas = [], onView
             </div>
           </div>
 
-          {/* ─── 2. ACTIONS PROGRAMMÉES (from CTAs during the call) ─── */}
-          {(appointmentCtas.length > 0 || summary.actions.length > 0) && (
-            <div className="bg-white rounded-[16px] border border-[#F0F0F2] p-3.5 shadow-sm">
-              <div className="flex items-center gap-2 mb-2.5">
-                <div className="w-7 h-7 rounded-[8px] bg-[#5C59F3] flex items-center justify-center">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" stroke="white" strokeWidth="2"/><path d="M16 2v4M8 2v4M3 10h18" stroke="white" strokeWidth="2" strokeLinecap="round"/></svg>
-                </div>
-                <p className="text-[13px] font-bold text-[#282830]">{isFr ? "Actions programmées" : "Scheduled actions"}</p>
-              </div>
-
-              {/* Show each action with its real data */}
-              {summary.actions.map((action, i) => (
-                <div key={i} className="flex items-start gap-2.5 py-2 border-b border-[#F5F5F7] last:border-0">
-                  <span className="text-[14px] mt-0.5">
-                    {action.type === "appointment" ? "📅" :
-                     action.type === "followup_call" ? "📞" :
-                     action.type === "sms_sent" ? "💬" :
-                     action.type === "teleconsultation_requested" ? "🏥" :
-                     action.type === "doctor_connect" ? "👨‍⚕️" :
-                     action.type === "provider_search" ? "📍" : "🚩"}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[11px] font-medium text-[#282830]">{action.description}</p>
-                    {action.scheduled_date && <p className="text-[10px] text-[#5C59F3] mt-0.5">📅 {action.scheduled_date}</p>}
-                    {action.sms_sent && <p className="text-[10px] text-[#2AA79C] mt-0.5">✅ SMS {isFr ? "envoyé" : "sent"}</p>}
+          {/* ─── 2. ACTIONS PROGRAMMÉES (only appointments + followup calls) ─── */}
+          {(() => {
+            const scheduledActions = summary.actions.filter((a) =>
+              a.type === "appointment" || a.type === "followup_call"
+            );
+            if (scheduledActions.length === 0) return null;
+            return (
+              <div className="bg-white rounded-[16px] border border-[#F0F0F2] p-3.5 shadow-sm">
+                <div className="flex items-center gap-2 mb-2.5">
+                  <div className="w-7 h-7 rounded-[8px] bg-[#5C59F3] flex items-center justify-center">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" stroke="white" strokeWidth="2"/><path d="M16 2v4M8 2v4M3 10h18" stroke="white" strokeWidth="2" strokeLinecap="round"/></svg>
                   </div>
+                  <p className="text-[13px] font-bold text-[#282830]">{isFr ? "Actions programmées" : "Scheduled actions"}</p>
                 </div>
-              ))}
-            </div>
-          )}
+
+                {scheduledActions.map((action, i) => (
+                  <div key={i} className="flex items-start gap-2.5 py-2 border-b border-[#F5F5F7] last:border-0">
+                    <span className="text-[14px] mt-0.5">
+                      {action.type === "appointment" ? "📅" : "📞"}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-medium text-[#282830]">{action.description}</p>
+                      {action.scheduled_date && <p className="text-[10px] text-[#5C59F3] mt-0.5">📅 {action.scheduled_date}</p>}
+                      {action.sms_sent && <p className="text-[10px] text-[#2AA79C] mt-0.5">✅ SMS {isFr ? "envoyé" : "sent"}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
 
           {/* ─── 3. CHAT MÉDECIN (if doctor_connect CTA was sent) ─── */}
           {(hasDoctorConnect || teleconsultCtas.length > 0) && (
@@ -169,8 +169,8 @@ export default function PatientActions({ summary, patient, liveCtas = [], onView
             </div>
           )}
 
-          {/* ─── 5. REMBOURSEMENT (only secu/alan/out-of-pocket, no operation price) ─── */}
-          {(reimbursementCtas.length > 0 || summary.reimbursement_discussed) && (
+          {/* ─── 5. REMBOURSEMENT (only if discussed during the call) ─── */}
+          {reimbursementCtas.length > 0 && (
             <div className="bg-white rounded-[16px] border border-[#F0F0F2] p-3.5 shadow-sm">
               <div className="flex items-center gap-2 mb-2.5">
                 <div className="w-7 h-7 rounded-[8px] bg-[#FFF3E0] flex items-center justify-center">💰</div>
@@ -194,15 +194,6 @@ export default function PatientActions({ summary, patient, liveCtas = [], onView
                 );
               })}
 
-              {summary.reimbursement_discussed && reimbursementCtas.length === 0 && (
-                <div className="space-y-1">
-                  <p className="text-[11px] text-[#282830]">{summary.reimbursement_discussed.procedure}</p>
-                  <div className="flex justify-between"><span className="text-[10px] text-[#8E8E93]">{isFr ? "Sécu" : "Social security"}</span><span className="text-[10px] font-semibold">{summary.reimbursement_discussed.secu_reimbursement}€</span></div>
-                  <div className="flex justify-between"><span className="text-[10px] text-[#8E8E93]">Alan</span><span className="text-[10px] font-semibold text-[#5C59F3]">{summary.reimbursement_discussed.alan_reimbursement}€</span></div>
-                  <div className="flex justify-between border-t border-[#F5F5F7] pt-1"><span className="text-[10px] font-semibold">{isFr ? "Reste à charge" : "Out of pocket"}</span><span className="text-[11px] font-bold">{summary.reimbursement_discussed.out_of_pocket}€</span></div>
-                  {summary.reimbursement_discussed.direct_billing && <p className="text-[10px] text-[#2AA79C] mt-1">✅ {isFr ? "Tiers payant" : "Direct billing"}</p>}
-                </div>
-              )}
             </div>
           )}
 
