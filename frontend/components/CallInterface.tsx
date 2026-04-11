@@ -11,7 +11,6 @@ import Image from "next/image";
 import {
   LiveKitRoom,
   useVoiceAssistant,
-  useRoomContext,
   BarVisualizer,
   VideoTrack,
   RoomAudioRenderer,
@@ -162,8 +161,25 @@ export default function CallInterface({ patient, onBack }: CallInterfaceProps) {
     return <Dashboard summary={summary} onBack={onBack} />;
   }
 
-  // --- Active call / waiting for summary ---
-  // Room stays connected so we can receive the summary text stream
+  // --- Generating summary ---
+  if (callPhase === "ending") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#FFFCF5]">
+        <div className="text-center">
+          <div className="relative w-28 h-28 mx-auto mb-6">
+            <div className="absolute inset-0 rounded-full bg-[#5C59F3]/10 animate-pulse" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Image src="/maude.png" alt="Maude" width={80} height={80} className="drop-shadow-lg" />
+            </div>
+          </div>
+          <h2 className="text-xl font-bold text-[#282830] mb-2">{t("call.generating_summary")}</h2>
+          <p className="text-[#9DA3BA] mb-6">{t("call.generating_hint")}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Active call ---
   return (
     <LiveKitRoom
       serverUrl={url}
@@ -172,96 +188,9 @@ export default function CallInterface({ patient, onBack }: CallInterfaceProps) {
       audio={true}
       className="min-h-screen bg-[#FFFCF5]"
     >
-      {callPhase === "ending" ? (
-        <EndingCall onSkip={onBack} summaryTimeout={summaryTimeout} />
-      ) : (
-        <ActiveCall patient={patient} onEndCall={handleEndCall} />
-      )}
-      <SummaryListener onSummaryReceived={handleSummaryReceived} />
+      <ActiveCall patient={patient} onEndCall={handleEndCall} onTranscriptionUpdate={handleTranscriptionUpdate} />
       <RoomAudioRenderer />
     </LiveKitRoom>
-  );
-}
-
-/* ─── Summary listener — always mounted inside LiveKitRoom ─── */
-function SummaryListener({ onSummaryReceived }: { onSummaryReceived: (data: CallSummary) => void }) {
-  const { textStreams: summaryStreams } = useTextStream("call-summary");
-
-  useEffect(() => {
-    if (summaryStreams.length > 0) {
-      console.log("[HEYMO] SummaryListener got data:", summaryStreams.length);
-      try {
-        const parsed = JSON.parse(summaryStreams[0].text) as CallSummary;
-        onSummaryReceived(parsed);
-      } catch (e) {
-        console.error("[HEYMO] SummaryListener parse error:", e);
-      }
-    }
-  }, [summaryStreams, onSummaryReceived]);
-
-  return null;
-}
-
-/* ─── Ending call — muted mic, waiting for summary, still in room ─── */
-function EndingCall({ onSkip, summaryTimeout }: { onSkip: () => void; summaryTimeout: boolean }) {
-  const { t, locale } = useTranslation();
-  const room = useRoomContext();
-
-  // Mute mic and disconnect after a delay to trigger agent summary
-  useEffect(() => {
-    async function endCall() {
-      // Step 1: mute mic immediately
-      await room.localParticipant.setMicrophoneEnabled(false);
-      console.log("[HEYMO] Mic muted");
-
-      // Step 2: disconnect after 1s — triggers agent's participant_disconnected handler
-      // But we stay in the LiveKitRoom component so useTextStream still works
-      // Actually we need to NOT disconnect if we want to receive the summary...
-      // So instead, send a signal to the agent
-      try {
-        const encoder = new TextEncoder();
-        await room.localParticipant.publishData(
-          encoder.encode(JSON.stringify({ type: "end-call" })),
-          { reliable: true, topic: "end-call" }
-        );
-        console.log("[HEYMO] end-call signal sent to agent");
-      } catch (e) {
-        console.log("[HEYMO] Could not send end-call signal:", e);
-      }
-
-      // Step 3: disconnect after 2s — this triggers agent summary generation
-      // The room component stays mounted so the summary can still arrive
-      // via the SummaryListener before the component unmounts
-      setTimeout(async () => {
-        console.log("[HEYMO] Disconnecting from room...");
-        await room.disconnect();
-        console.log("[HEYMO] Disconnected");
-      }, 2000);
-    }
-    endCall();
-  }, [room]);
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-[#FFFCF5]">
-      <div className="text-center">
-        <div className="relative w-28 h-28 mx-auto mb-6">
-          <div className="absolute inset-0 rounded-full bg-[#5C59F3]/10 animate-pulse" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Image src="/maude.png" alt="Maude" width={80} height={80} className="drop-shadow-lg" />
-          </div>
-        </div>
-        <h2 className="text-xl font-bold text-[#282830] mb-2">{t("call.generating_summary")}</h2>
-        <p className="text-[#9DA3BA] mb-6">{t("call.generating_hint")}</p>
-        {summaryTimeout && (
-          <p className="text-[#FF6D39] text-sm mb-4">
-            {locale === "fr" ? "Le résumé prend plus de temps que prévu..." : "Summary is taking longer than expected..."}
-          </p>
-        )}
-        <button onClick={onSkip} className="alan-btn-primary px-6 py-3">
-          {t("call.skip")}
-        </button>
-      </div>
-    </div>
   );
 }
 
@@ -320,9 +249,11 @@ function PatientInfoSheet({ patient }: { patient: PatientProfile }) {
 function ActiveCall({
   patient,
   onEndCall,
+  onTranscriptionUpdate,
 }: {
   patient: PatientProfile;
   onEndCall: () => void;
+  onTranscriptionUpdate: (texts: string[]) => void;
 }) {
   const { t } = useTranslation();
   const { state, audioTrack, videoTrack, agentTranscriptions } = useVoiceAssistant();
@@ -331,6 +262,11 @@ function ActiveCall({
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 
   const { textStreams: liveUpdates } = useTextStream("live-updates");
+
+  // Collect transcriptions for summary generation
+  useEffect(() => {
+    onTranscriptionUpdate(agentTranscriptions.map((t) => t.text));
+  }, [agentTranscriptions, onTranscriptionUpdate]);
 
   useEffect(() => {
     const interval = setInterval(() => setCallDuration((d) => d + 1), 1000);
