@@ -13,8 +13,22 @@
       "description_fr": "arthroscopie du genou droit",
       "date": "2026-03-26",
       "provider": "Clinique du Sport Paris",
-      "followup_required": "Surgeon follow-up before April 25",
-      "followup_booked": false
+      "doctor_name": "Dr. Thomas Girard",
+      "doctor_specialty": "Chirurgien orthopédiste",
+      "followup_required": "Follow-up with Dr. Girard before April 25",
+      "followup_booked": false,
+      "specific_questions_fr": [
+        "Vous arrivez à marcher normalement ?",
+        "Le genou dégonfle bien ?",
+        "Vous arrivez à plier le genou sans trop de douleur ?",
+        "Vous avez repris la rééducation ?"
+      ],
+      "specific_questions_en": [
+        "Are you able to walk normally?",
+        "Is the swelling going down?",
+        "Can you bend your knee without too much pain?",
+        "Have you started physiotherapy?"
+      ]
     },
     "medications": [
       {
@@ -36,13 +50,7 @@
       "formula": "Alan Blue",
       "complementary_rate": 1.0,
       "teleconsultation_included": true
-    },
-    "nearby_doctors": [
-      {"name": "Dr. Marie Lavigne", "specialty": "Généraliste", "distance": "73m", "sector": "Secteur 1"},
-      {"name": "Dr. Arnaud Cocaul", "specialty": "Généraliste", "distance": "73m", "sector": "Secteur 1"},
-      {"name": "Dr. Philippe Renard", "specialty": "Chirurgien orthopédiste", "distance": "450m", "sector": "Secteur 2"},
-      {"name": "Cabinet Mouvement", "specialty": "Kinésithérapeute", "distance": "320m", "sector": "Conventionné"}
-    ]
+    }
   },
   "marc_dubois": {
     "patient_id": "marc_dubois",
@@ -57,9 +65,23 @@
       "description": "Type 2 diabetes follow-up with endocrinologist",
       "description_fr": "suivi diabète de type 2 chez l'endocrinologue",
       "date": "2026-04-02",
-      "provider": "Dr. Laurent Moreau, Endocrinologist",
-      "followup_required": "Blood test (HbA1c) before May 15, next consult May 20",
-      "followup_booked": true
+      "provider": "Cabinet d'Endocrinologie Lyon",
+      "doctor_name": "Dr. Laurent Moreau",
+      "doctor_specialty": "Endocrinologue",
+      "followup_required": "Blood test (HbA1c) before May 15, next consult with Dr. Moreau May 20",
+      "followup_booked": true,
+      "specific_questions_fr": [
+        "Votre glycémie est stable ces derniers temps ?",
+        "Vous avez des épisodes d'hypoglycémie ?",
+        "Vous arrivez à maintenir votre alimentation équilibrée ?",
+        "Vous avez fait votre prise de sang HbA1c ?"
+      ],
+      "specific_questions_en": [
+        "Has your blood sugar been stable recently?",
+        "Any episodes of low blood sugar?",
+        "Have you been able to maintain a balanced diet?",
+        "Have you done your HbA1c blood test?"
+      ]
     },
     "medications": [
       {
@@ -88,12 +110,7 @@
       "formula": "Alan Green",
       "complementary_rate": 0.8,
       "teleconsultation_included": true
-    },
-    "nearby_doctors": [
-      {"name": "Dr. Laurent Moreau", "specialty": "Endocrinologue", "distance": "1.2km", "sector": "Secteur 1"},
-      {"name": "Dr. Sophie Vidal", "specialty": "Généraliste", "distance": "200m", "sector": "Secteur 1"},
-      {"name": "Laboratoire Biolyss", "specialty": "Analyses médicales", "distance": "350m", "sector": "Conventionné"}
-    ]
+    }
   },
   "lea_chen": {
     "patient_id": "lea_chen",
@@ -108,9 +125,23 @@
       "description": "Second trimester pregnancy check-up (22 weeks)",
       "description_fr": "suivi de grossesse du deuxième trimestre, vingt-deux semaines",
       "date": "2026-04-05",
-      "provider": "Dr. Marie Lefevre, Obstetrician-Gynecologist",
-      "followup_required": "Morphology ultrasound before April 20, glucose tolerance test before April 30",
-      "followup_booked": false
+      "provider": "Cabinet de Gynécologie Bordeaux",
+      "doctor_name": "Dr. Marie Lefevre",
+      "doctor_specialty": "Gynécologue-obstétricienne",
+      "followup_required": "Morphology ultrasound before April 20 with Dr. Lefevre, glucose tolerance test before April 30",
+      "followup_booked": false,
+      "specific_questions_fr": [
+        "Vous sentez bien le bébé bouger ?",
+        "Des nausées ou des vertiges ?",
+        "Vous dormez correctement ?",
+        "Vous avez calé votre échographie morphologique ?"
+      ],
+      "specific_questions_en": [
+        "Are you feeling the baby move regularly?",
+        "Any nausea or dizziness?",
+        "Are you sleeping OK?",
+        "Have you scheduled your morphology ultrasound?"
+      ]
     },
     "medications": [
       {
@@ -132,11 +163,6 @@
       "formula": "Alan Blue",
       "complementary_rate": 1.0,
       "teleconsultation_included": true
-    },
-    "nearby_doctors": [
-      {"name": "Dr. Marie Lefevre", "specialty": "Gynécologue-obstétricienne", "distance": "800m", "sector": "Secteur 1"},
-      {"name": "Dr. Anne Petit", "specialty": "Sage-femme", "distance": "250m", "sector": "Conventionnée"},
-      {"name": "Dr. Thomas Roux", "specialty": "Généraliste", "distance": "150m", "sector": "Secteur 1"}
-    ]
+    }
   }
 }
