@@ -293,22 +293,35 @@ class AlanHealthAgent(Agent):
                 })
                 answer = result.answer or ""
 
-                # Extract provider name
-                name_match = re.search(r'(?:Pharmacie|Dr\.?|Cabinet|Clinique|Centre|Hospital)[^\n,.]{3,50}', answer, re.IGNORECASE)
-                provider_name = name_match.group(0).strip() if name_match else loading_label
-
-                # Extract address
-                addr_match = re.search(
-                    r'\d{1,4}[\s,]+(?:rue|avenue|boulevard|place|passage|impasse|allée|chemin|quai|street|road)[^,.\n]{3,80}',
-                    answer, re.IGNORECASE
-                )
-                if not addr_match:
-                    addr_match = re.search(r'\d{1,4}[^,.\n]{5,60}(?:750\d{2}|Paris|Lyon|Bordeaux)', answer, re.IGNORECASE)
-                address = addr_match.group(0).strip() if addr_match else location
-
-                # Extract phone
-                phone_match = re.search(r'(?:0[1-9][\s.]?\d{2}[\s.]?\d{2}[\s.]?\d{2}[\s.]?\d{2})', answer)
-                phone = phone_match.group(0).strip() if phone_match else None
+                # Use Mistral to extract structured info from Linkup answer
+                try:
+                    from mistralai import Mistral
+                    mistral = Mistral(api_key=os.environ.get("MISTRAL_API_KEY"))
+                    extraction = await mistral.chat.complete_async(
+                        model="mistral-small-latest",
+                        messages=[{"role": "user", "content": (
+                            f"From this text, extract the FIRST provider mentioned.\n"
+                            f"Return ONLY valid JSON: {{\"name\": \"...\", \"address\": \"...\", \"phone\": \"...\"}}\n"
+                            f"name = full official name (e.g. 'Pharmacie Centrale du 11e')\n"
+                            f"address = full street address\n"
+                            f"phone = phone number or null\n\n"
+                            f"Text:\n{answer[:500]}"
+                        )}],
+                        response_format={"type": "json_object"},
+                    )
+                    import json as _json
+                    info = _json.loads(extraction.choices[0].message.content)
+                    provider_name = info.get("name", loading_label)
+                    address = info.get("address", location)
+                    phone = info.get("phone") or None
+                except Exception:
+                    # Fallback to regex
+                    name_match = re.search(r'(?:Pharmacie|Dr\.?|Cabinet|Clinique|Centre|Hospital)[^\n,.]{3,50}', answer, re.IGNORECASE)
+                    provider_name = name_match.group(0).strip() if name_match else loading_label
+                    addr_match = re.search(r'\d{1,4}[\s,]+(?:rue|avenue|boulevard|place|passage|impasse|allée|chemin|quai|street|road)[^,.\n]{3,80}', answer, re.IGNORECASE)
+                    address = addr_match.group(0).strip() if addr_match else location
+                    phone_match = re.search(r'(?:0[1-9][\s.]?\d{2}[\s.]?\d{2}[\s.]?\d{2}[\s.]?\d{2})', answer)
+                    phone = phone_match.group(0).strip() if phone_match else None
 
                 desc_parts = [address]
                 if phone:
@@ -319,7 +332,6 @@ class AlanHealthAgent(Agent):
                     "description": " · ".join(desc_parts),
                     "show_map": True,
                 }, cta_id=cta_id)
-                # Don't repeat CTA info — it's on screen
                 return f"SHOWN ON SCREEN. Don't repeat name/address. Just say you're showing it and ask a question."
             except Exception as e:
                 logger.warning(f"Linkup provider search error: {e}")
