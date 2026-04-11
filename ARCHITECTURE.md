@@ -5,47 +5,61 @@
 Deux composants déployés séparément. Ils communiquent via LiveKit Cloud (WebRTC + text streams).
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                    NAVIGATEUR (juge)                  │
+┌──────────────────────────────────────────────────────┐
+│                    NAVIGATEUR                         │
 │                                                      │
 │  1. Ouvre l'URL Vercel                               │
-│  2. Choisit un profil patient                        │
-│  3. Clique "Start Call" → parle dans le micro        │
-│  4. Raccroche → voit le dashboard                    │
-└──────────────────────┬──────────────────────────────┘
+│  2. Voit le profil Sophie Martin (défaut)            │
+│  3. Clique "Start Call" → animation appel entrant    │
+│  4. Accepte → parle dans le micro                    │
+│  5. Voit les CTA en direct (pharmacie, médecin...)   │
+│  6. Raccroche → récapitulatif patient + dashboard    │
+│  7. Peut chatter avec Dr. Claire Morel (Mistral)     │
+└──────────────────────┬───────────────────────────────┘
                        │
                        ▼
 ┌──────────────────────────────────────────────────────┐
-│              FRONTEND (Vercel)                         │
-│              frontend/                                │
+│              FRONTEND (Vercel)                        │
+│              frontend/                               │
 │                                                      │
 │  Next.js 15.5 + React 19 + Tailwind 4               │
 │                                                      │
 │  ┌─────────────────────────────────────────┐         │
-│  │ page.tsx                                 │         │
-│  │  1. PatientSelector (choix du scénario)  │         │
-│  │  2. CallInterface (vue patient —         │         │
-│  │     le juge joue le rôle du patient)     │         │
-│  │  3. Dashboard (vue admin —               │         │
-│  │     ce que l'équipe soin verrait)        │         │
+│  │ page.tsx                                │         │
+│  │  1. AlanHomeScreen (profil Sophie)      │         │
+│  │  2. CallInterface (appel vocal —        │         │
+│  │     CTAs live, transcription, alertes,  │         │
+│  │     modal Google Maps)                  │         │
+│  │  3. PatientActions (récap patient —     │         │
+│  │     CTAs, chat médecin, médicaments)    │         │
+│  │  4. Dashboard (vue équipe soins)        │         │
 │  └─────────────────────────────────────────┘         │
 │                                                      │
 │  ┌─────────────────────────────────────────┐         │
-│  │ /api/token (route.ts)                   │         │
+│  │ API Routes                              │         │
 │  │                                         │         │
-│  │  Reçoit: { patientId }                  │         │
-│  │  Crée un token LiveKit avec:            │         │
-│  │    identity: "patient-sophie_martin"     │         │
-│  │    attributes: { patient_id: "..." }    │         │
-│  │  Retourne: { token, url, roomName }     │         │
+│  │ POST /api/token                         │         │
+│  │   → JWT LiveKit avec patient_id +       │         │
+│  │     language dans attributes            │         │
+│  │                                         │         │
+│  │ POST /api/summarize                     │         │
+│  │   → Mistral analyse le transcript       │         │
+│  │   → retourne CallSummary JSON           │         │
+│  │                                         │         │
+│  │ POST /api/doctor-chat                   │         │
+│  │   → Dr. Claire Morel (Mistral)          │         │
+│  │   → conversation avec contexte appel    │         │
+│  │                                         │         │
+│  │ POST /api/translate                     │         │
+│  │   → traduction JSON dynamique FR↔EN     │         │
 │  └─────────────────────────────────────────┘         │
 │                                                      │
 │  Env vars: LIVEKIT_URL, LIVEKIT_API_KEY,             │
-│            LIVEKIT_API_SECRET                         │
-└──────────────────────┬──────────────────────────────┘
+│            LIVEKIT_API_SECRET, MISTRAL_API_KEY        │
+└──────────────────────┬───────────────────────────────┘
                        │
                        │ WebRTC (audio bidirectionnel)
-                       │ + Text Streams (données JSON)
+                       │ + Text Streams (CTAs, alertes)
                        │
                        ▼
 ┌──────────────────────────────────────────────────────┐
@@ -53,53 +67,64 @@ Deux composants déployés séparément. Ils communiquent via LiveKit Cloud (Web
 │                                                      │
 │  - Gère les rooms WebRTC                             │
 │  - Route l'audio entre le navigateur et l'agent      │
-│  - Transporte les text streams (summary, alerts)     │
+│  - Transporte les text streams :                     │
+│    · "live-updates" (CTAs + alertes pendant l'appel) │
+│    · "call-summary" (résumé post-appel)              │
 │  - Réveille l'agent quand un participant rejoint     │
-│  - Free tier: 1000 min/mois, 5 sessions simultanées  │
-└──────────────────────┬──────────────────────────────┘
+│  - Free tier: 1000 min/mois, 5 sessions simultanées │
+└──────────────────────┬───────────────────────────────┘
                        │
                        ▼
 ┌──────────────────────────────────────────────────────┐
-│              AGENT PYTHON (LiveKit Cloud)              │
+│              AGENT PYTHON (LiveKit Cloud)             │
 │              agent/                                   │
 │                                                      │
 │  ┌─────────────────────────────────────────┐         │
 │  │ agent.py — Orchestrateur                │         │
 │  │                                         │         │
-│  │  1. Lit patient_id des attributes       │         │
+│  │  1. Lit patient_id + language des       │         │
+│  │     attributes du participant           │         │
 │  │  2. Charge patient + wearable data      │         │
 │  │  3. Crée AgentSession avec:             │         │
 │  │     - Voxtral STT (realtime)            │         │
 │  │     - Mistral Small 4 (LLM)            │         │
-│  │     - Voxtral TTS                       │         │
+│  │     - ElevenLabs TTS (Jessica, v2.5)    │         │
 │  │     - Silero VAD                        │         │
-│  │  4. Envoie le greeting                  │         │
-│  │  5. Boucle conversation                 │         │
-│  │  6. À la déconnexion → envoie summary   │         │
+│  │     - Multilingual turn detector        │         │
+│  │  4. Envoie le greeting personnalisé     │         │
+│  │  5. Boucle conversation avec 15 tools   │         │
+│  │  6. Auto-hangup après 3 min (démo)      │         │
+│  │  7. À la déconnexion → envoie summary   │         │
 │  └──────────┬──────────┬───────────────────┘         │
 │             │          │                              │
 │  ┌──────────▼──┐ ┌────▼────────────────────┐        │
 │  │ playbook.py │ │ tools.py                 │        │
 │  │             │ │                           │        │
-│  │ System      │ │ get_reimbursement_info() │        │
-│  │ prompt +    │ │   → Linkup API           │        │
+│  │ System      │ │ load_patient()            │        │
+│  │ prompt +    │ │   → patients.json         │        │
 │  │ patient     │ │                           │        │
-│  │ context     │ │ get_wearable_data()       │        │
-│  │             │ │   → Thryve API            │        │
-│  │ (NonTech    │ │                           │        │
-│  │  écrit le   │ │ load_patient()            │        │
-│  │  texte)     │ │   → patients.json         │        │
+│  │ context +   │ │ get_reimbursement_info()  │        │
+│  │ wearable    │ │   → Linkup API + parsing  │        │
+│  │ data        │ │                           │        │
+│  │             │ │ get_wearable_data()        │        │
+│  │ (NonTech    │ │   → Thryve QA API         │        │
+│  │  écrit le   │ │   (dual Basic Auth)       │        │
+│  │  playbook)  │ │                           │        │
 │  └─────────────┘ └─────────────┬─────────────┘        │
 │                                │                      │
 │  Secrets: MISTRAL_API_KEY,     │                      │
+│    ELEVEN_API_KEY,             │                      │
 │    LINKUP_API_KEY,             │                      │
-│    THRYVE_API_KEY              │                      │
+│    THRYVE_WEB_USER,            │                      │
+│    THRYVE_WEB_PASSWORD,        │                      │
+│    THRYVE_APP_AUTH_ID,         │                      │
+│    THRYVE_APP_AUTH_SECRET      │                      │
 └────────────────────────────────┼──────────────────────┘
                                  │
-                    ┌────────────┼────────────┐
-                    ▼            ▼            ▼
-              api.mistral.ai  api.linkup.so  api.thryve.health
-              (STT+LLM+TTS)  (remboursement) (wearables)
+                    ┌────────────┼────────────┬──────────┐
+                    ▼            ▼            ▼          ▼
+              api.mistral.ai  api.linkup.so  Thryve QA  ElevenLabs
+              (STT + LLM)    (recherche)    (wearables) (TTS)
 ```
 
 ---
@@ -108,16 +133,21 @@ Deux composants déployés séparément. Ils communiquent via LiveKit Cloud (Web
 
 ### 1. Sélection du patient (Frontend → Agent)
 
+Sophie Martin est le patient par défaut. Pas d'écran de sélection.
+
 ```
-Juge clique "Sophie"
+App s'ouvre → AlanHomeScreen avec Sophie
         │
         ▼
-POST /api/token { patientId: "sophie_martin" }
+Clic "Start Call" → animation appel entrant
+        │
+        ▼
+POST /api/token { patientId: "sophie_martin", language: "fr" }
         │
         ▼
 Token endpoint crée un JWT LiveKit avec:
   identity: "patient-sophie_martin"
-  attributes: { patient_id: "sophie_martin" }    ← C'EST ICI
+  attributes: { patient_id: "sophie_martin", language: "fr" }
         │
         ▼
 Frontend se connecte au room LiveKit avec ce token
@@ -126,80 +156,98 @@ Frontend se connecte au room LiveKit avec ce token
 LiveKit réveille l'agent Python
         │
         ▼
-Agent lit: participant.attributes["patient_id"]   ← ET LÀ
+Agent lit: participant.attributes["patient_id"]
+          participant.attributes["language"]
         │
         ▼
-Agent charge le profil Sophie depuis patients.json
+Agent charge le profil Sophie + données wearable
 ```
 
 **Fichiers impliqués :**
-- `frontend/app/api/token/route.ts` → met patient_id dans attributes
-- `agent/agent.py` ligne 226 → lit patient_id des attributes
-- `agent/tools.py` → `load_patient()` charge le profil
+- `frontend/app/page.tsx` → hardcode Sophie, passe au CallInterface
+- `frontend/app/api/token/route.ts` → met patient_id + language dans attributes
+- `agent/agent.py` entrypoint → lit patient_id + language des attributes
+- `agent/tools.py` → `load_patient()` + `get_wearable_data()`
 
-### 2. Conversation vocale (bidirectionnelle, automatique)
-
-```
-Juge parle dans le micro
-        │
-        ▼ (WebRTC audio)
-Voxtral STT transcrit en streaming
-        │
-        ▼
-Silero VAD détecte fin de parole (550ms silence)
-        │
-        ▼
-Mistral Small 4 génère la réponse
-  └─ peut appeler des function tools:
-     ├─ get_reimbursement_info() → Linkup/mock
-     ├─ get_wearable_insights() → Thryve/mock
-     ├─ flag_alert() → marque une alerte
-     └─ schedule_followup() → planifie un suivi
-        │
-        ▼
-Voxtral TTS convertit le texte en audio
-        │
-        ▼ (WebRTC audio)
-Juge entend la réponse
-```
-
-**Zéro code à écrire pour ce flux.** LiveKit + les plugins Mistral gèrent tout. Le seul code c'est la config dans `AgentSession()`.
-
-### 3. Résumé post-appel (Agent → Frontend)
+### 2. Conversation vocale (bidirectionnelle)
 
 ```
-Juge clique "End Call"
+Patient parle dans le micro
+        │
+        ├──▶ WebRTC audio vers l'agent
+        │         │
+        │         ▼
+        │    Voxtral STT transcrit en streaming
+        │         │
+        │         ▼
+        │    Silero VAD détecte fin de parole
+        │         │
+        │         ▼
+        │    Mistral Small 4 génère la réponse
+        │      └─ peut appeler 15 function tools :
+        │         ├─ get_reimbursement_info() → Linkup/mock → CTA remboursement
+        │         ├─ get_wearable_insights() → données wearable
+        │         ├─ flag_alert() → alerte orange/red → bannière sur écran
+        │         ├─ schedule_followup() → CTA rendez-vous
+        │         ├─ find_nearby_provider() → Linkup + Mistral extraction → CTA carte
+        │         ├─ connect_with_doctor() → CTA chat médecin (avec contexte appel)
+        │         ├─ request_teleconsultation() → CTA téléconsultation
+        │         ├─ send_sms_reminder() → SMS simulé (logué)
+        │         ├─ get_patient_context() → profil patient
+        │         ├─ get_side_effects() → Linkup
+        │         ├─ check_drug_interactions() → Linkup
+        │         ├─ get_procedure_price() → Linkup
+        │         ├─ get_condition_info() → Linkup
+        │         ├─ get_alan_coverage_details() → Linkup
+        │         └─ search_health_info() → Linkup (dernier recours)
+        │         │
+        │         ▼
+        │    ElevenLabs TTS convertit le texte en audio (Jessica, Flash v2.5)
+        │         │
+        │         ▼ (WebRTC audio)
+        │    Patient entend la réponse
+        │
+        └──▶ Browser Speech Recognition (en parallèle)
+                  │
+                  ▼
+             Transcription côté patient affichée dans le chat
+```
+
+### 3. CTA live pendant l'appel (Agent → Frontend)
+
+```
+LLM appelle un tool (ex: find_nearby_provider)
         │
         ▼
-Frontend déconnecte du room LiveKit
-        │
-        ▼
-LiveKit émet "participant_disconnected" sur le room
-        │
-        ▼
-Agent reçoit l'événement (agent.py → on_disconnect)
-        │
-        ▼
-Agent génère le summary JSON (agent.py → generate_summary)
-        │
-        ▼
-Agent envoie via: room.local_participant.send_text(
-    json.dumps(summary), topic="call-summary"
-)
+Tool envoie un CTA "loading" :
+  room.local_participant.send_text(
+    json.dumps({"type":"cta","id":"provider-pharmacie","action":"provider",
+                "label":"Pharmacie — Paris","data":{"loading":true}}),
+    topic="live-updates"
+  )
         │
         ▼ (LiveKit text stream)
-Frontend reçoit via: useTextStream("call-summary")
+Frontend reçoit via: useTextStream("live-updates")
+CallInterface.tsx affiche le CTA avec indicateur de chargement
         │
         ▼
-Dashboard.tsx affiche le résumé
+Tool termine la recherche → envoie le CTA final (même id = remplacement) :
+  {"type":"cta","id":"provider-pharmacie","action":"provider",
+   "label":"Pharmacie Centrale du 11e",
+   "data":{"address":"12 rue Oberkampf","phone":"01 43 57 12 34",
+           "show_map":true}}
+        │
+        ▼
+Frontend remplace le CTA loading par les résultats
+Si show_map=true → modal Google Maps pendant 5 secondes
 ```
 
-**Contrat de données :** le JSON du summary DOIT correspondre à `CallSummary` dans `frontend/lib/types.ts`. C'est la source de vérité unique.
+**Déduplication :** les CTAs avec le même `id` remplacent le précédent. Utilisé pour la transition chargement → résultat.
 
 ### 4. Alertes live pendant l'appel (Agent → Frontend)
 
 ```
-Agent détecte un symptôme inquiétant
+Agent détecte un symptôme inquiétant (patient mentionne douleur)
         │
         ▼
 LLM appelle flag_alert(level="orange", reason="...")
@@ -214,112 +262,156 @@ Agent envoie via: room.local_participant.send_text(
 Frontend reçoit via: useTextStream("live-updates")
         │
         ▼
-CallInterface.tsx affiche le bandeau d'alerte
+CallInterface.tsx affiche le bandeau d'alerte orange/red
 ```
 
-**Statut :** le frontend est prêt à recevoir. Le `send_text` dans `flag_alert` est un `TODO(Dev1)`.
+### 5. Résumé post-appel (deux chemins parallèles)
 
-### 5. Comment le résumé post-appel se construit
-
-Le résumé est un JSON (`CallSummary`) assemblé à partir de **3 sources** :
-
+**Chemin A — Frontend (principal pour l'affichage) :**
 ```
-SOURCE 1 — Données chargées au début de l'appel (automatique)
-├── patient profile (name, meds, event, contract) ← patients.json
-└── wearable data (HR, sleep, steps) ← Thryve API ou mock
-
-SOURCE 2 — Données accumulées pendant l'appel (via function tools)
-├── _alert_level ← mis à jour si flag_alert() est appelé par le LLM
-├── _actions[] ← rempli par flag_alert() et schedule_followup()
-└── _reimbursement_discussed ← rempli si get_reimbursement_info() est appelé
-
-SOURCE 3 — Résumé de la conversation (TODO Dev 1)
-├── patient_state.pain_level ← ce que le patient a dit sur sa douleur
-├── patient_state.mood ← son état émotionnel
-├── patient_state.general ← impression générale
-└── summary ← résumé en 1-2 phrases de la conversation
-
-                ┌──────────────┐
-                │ generate_     │
-  Source 1 ────▶│ summary()    │────▶ JSON CallSummary
-  Source 2 ────▶│              │      envoyé au frontend
-  Source 3 ────▶│ agent.py     │      via text stream
-                └──────────────┘
+Patient clique "End Call"
+        │
+        ▼
+Frontend POST /api/summarize avec :
+  - transcriptions (côté agent uniquement)
+  - patientId, patientName, eventDescription
+  - medications, language
+        │
+        ▼
+/api/summarize appelle Mistral Small (response_format: json_object)
+  → analyse le transcript
+  → génère CallSummary JSON complet
+        │
+        ▼
+Frontend reçoit le summary → affiche PatientActions
 ```
 
-**Aujourd'hui dans le boilerplate :**
-- Source 1 : fonctionne (données patient + wearable chargées au démarrage)
-- Source 2 : fonctionne (les tools accumulent dans `_alert_level`, `_actions`, `_reimbursement_discussed`)
-- Source 3 : **stub** — retourne `"unknown"` partout. Dev 1 doit utiliser le LLM pour résumer l'historique de conversation et remplir ces champs avec du vrai contenu.
+**Chemin B — Agent (summary envoyé par text stream) :**
+```
+LiveKit émet "participant_disconnected"
+        │
+        ▼
+Agent reçoit l'événement → generate_summary()
+  └─ Source 1 : profil patient + wearable data (chargés au démarrage)
+  └─ Source 2 : données accumulées pendant l'appel
+     (_alert_level, _actions[], _reimbursement_discussed)
+  └─ Source 3 : Mistral analyse le transcript de conversation
+     → pain_level, mood, general, summary, medication_compliance
+        │
+        ▼
+Agent envoie via: room.local_participant.send_text(
+    json.dumps(summary), topic="call-summary"
+)
+```
+
+### 6. Chat médecin post-appel (Frontend ↔ Mistral)
+
+```
+Patient clique "Start chat" sur PatientActions
+        │
+        ▼
+DoctorChat.tsx s'ouvre
+        │
+        ▼
+POST /api/doctor-chat avec :
+  - messages: [{ role: "user", content: "[instruction de greeting]" }]
+  - patientName, callSummary (texte du résumé), language
+        │
+        ▼
+/api/doctor-chat injecte un system prompt :
+  "Tu es Dr. Claire Morel. Résumé de l'appel : [callSummary].
+   Chaleureuse, concise, 2-3 phrases max."
+        │
+        ▼
+Mistral Small génère la réponse du médecin
+        │
+        ▼
+DoctorChat affiche la réponse dans un chat iMessage-style
+        │
+        ▼
+Patient tape un message → POST /api/doctor-chat (avec historique)
+→ Mistral répond → affiché → etc.
+```
 
 ---
 
-## Ownership des fichiers
+## Fichiers du projet
 
 ```
 agent/
-├── agent.py           ← Dev 1 (orchestration, session, lifecycle)
-├── playbook.py        ← Non-tech (texte) + Dev 1 (builder function)
-├── tools.py           ← Dev 2 (function tools, APIs Linkup/Thryve)
-├── patients.json      ← Dev 2 + Non-tech (profils médicaux)
-├── requirements.txt   ← Dev 1
-├── Dockerfile         ← Dev 1
-└── .env.example       ← Tous
+├── agent.py           ← Orchestrateur : AgentSession, 15 tools, greeting, summary, auto-hangup
+├── playbook.py        ← Playbook texte + builder qui injecte le contexte patient
+├── tools.py           ← load_patient, get_reimbursement_info (Linkup), get_wearable_data (Thryve)
+├── patients.json      ← 3 profils patients (Sophie, Marc, Lea) avec données médicales complètes
+├── requirements.txt   ← Dépendances Python
+├── Dockerfile         ← Python 3.13 slim, pre-cache Silero VAD
+├── livekit.toml       ← Config LiveKit
+└── .env.example       ← Template des variables d'environnement
 
 frontend/
 ├── app/
-│   ├── page.tsx           ← Dev 3
-│   ├── api/token/route.ts ← Dev 3
-│   ├── layout.tsx         ← Dev 3
-│   └── globals.css        ← Dev 3
+│   ├── page.tsx                    ← Page principale : Home → Call flow (Sophie par défaut)
+│   ├── layout.tsx                  ← Root layout
+│   ├── globals.css                 ← Styles globaux + animations
+│   └── api/
+│       ├── token/route.ts          ← JWT LiveKit avec patient_id + language
+│       ├── summarize/route.ts      ← Analyse transcript → CallSummary via Mistral
+│       ├── doctor-chat/route.ts    ← Dr. Claire Morel (Mistral) avec contexte appel
+│       └── translate/route.ts      ← Traduction JSON dynamique FR↔EN via Mistral
 ├── components/
-│   ├── PatientSelector.tsx ← Dev 3
-│   ├── CallInterface.tsx   ← Dev 3
-│   └── Dashboard.tsx       ← Dev 3
+│   ├── AlanHomeScreen.tsx          ← Écran d'accueil : profil patient + déclencheur appel
+│   ├── CallInterface.tsx           ← Appel actif : LiveKit, transcription, CTAs, alertes, maps
+│   ├── PatientActions.tsx          ← Récap patient post-appel : CTAs, médecin, médicaments
+│   ├── Dashboard.tsx               ← Vue équipe soins : résumé structuré
+│   ├── DoctorChat.tsx              ← Chat texte avec Dr. Claire Morel (Mistral)
+│   ├── PhoneFrame.tsx              ← Wrapper iPhone pour toutes les vues
+│   ├── PhoneNotification.tsx       ← Animation appel entrant
+│   ├── PatientSelector.tsx         ← Sélecteur de patient (non utilisé dans le flow par défaut)
+│   ├── LanguageSelector.tsx        ← Toggle FR/EN
+│   ├── AlanIcons.tsx               ← Icônes SVG custom
+│   └── AlanLogo.tsx                ← Logo Alan
 ├── lib/
-│   ├── types.ts           ← TOUS (contrats de données partagés)
-│   └── patients.ts        ← Dev 3
-└── .env.example           ← Dev 3
+│   ├── types.ts                    ← Contrats de données (CallSummary, LiveCTA, etc.)
+│   ├── patients.ts                 ← Profils patients pour le frontend
+│   └── i18n.tsx                    ← Système i18n FR/EN (React context + dictionnaires)
+└── public/
+    └── maude.png                   ← Avatar de Maude
 ```
-
-**Règle :** si tu changes un champ dans `types.ts`, tu DOIS mettre à jour l'agent ET le dashboard.
-
----
-
-## Dépendances entre devs
-
-```
-                    ┌──────────┐
-                    │ Non-tech │
-                    │ playbook │
-                    └────┬─────┘
-                         │ texte du playbook
-                         ▼
-┌──────────┐      ┌──────────┐      ┌──────────┐
-│  Dev 2   │─────▶│  Dev 1   │─────▶│  Dev 3   │
-│  tools   │      │  agent   │      │ frontend │
-│  data    │      │  session │      │  UI      │
-└──────────┘      └──────────┘      └──────────┘
-  fournit:          consomme:          consomme:
-  tools.py          tools.py           text streams
-  patients.json     playbook.py        (summary, alerts)
-```
-
-- **Dev 2 ne dépend de personne** → peut bosser dès 9h00
-- **Dev 3 ne dépend de personne** → peut bosser dès 9h00 (mocks suffisent)
-- **Dev 1 dépend de Dev 2** (tools) et **Non-tech** (playbook) mais les stubs marchent en attendant
-- **L'intégration** se fait quand Dev 1 + Dev 3 connectent le frontend au vrai agent (checkpoint 13h00)
 
 ---
 
 ## APIs externes
 
-| API | SDK | Auth | Utilisé par | Fallback si down |
-|-----|-----|------|-------------|-----------------|
-| Mistral (STT+LLM+TTS) | Via plugin LiveKit | `MISTRAL_API_KEY` env var | agent.py | Aucun (critique) |
-| Linkup (remboursement) | `linkup-sdk` Python | `LINKUP_API_KEY` env var | tools.py | Mock data dans `MOCK_REIMBURSEMENTS` |
-| Thryve (wearables) | HTTP REST (pas de SDK) | Credentials hackathon | tools.py | Mock data dans `MOCK_WEARABLES` |
-| LiveKit Cloud | SDKs Python + JS | Auto-injecté en cloud | agent.py + frontend | Aucun (critique) |
+| API | Auth | Utilisé par | Fallback si down |
+|-----|------|-------------|-----------------|
+| **Mistral** (STT + LLM) | `MISTRAL_API_KEY` env var | agent.py (via plugin LiveKit) | Aucun (critique) |
+| **Mistral** (extraction provider) | `MISTRAL_API_KEY` env var | agent.py `find_nearby_provider` | Regex extraction |
+| **Mistral** (summary, doctor chat, translate) | `MISTRAL_API_KEY` env var | frontend /api/* routes | Fallback generics |
+| **ElevenLabs** (TTS) | `ELEVEN_API_KEY` env var | agent.py (via plugin LiveKit) | Aucun (critique) |
+| **Linkup** (recherche web) | `LINKUP_API_KEY` env var | agent.py tools + tools.py | Mock data (12 procédures, données wearable) |
+| **Thryve QA** (wearables) | Dual Basic Auth (4 env vars) | tools.py | Mock data pour les 3 patients |
+| **LiveKit Cloud** (WebRTC) | Auto-injecté en cloud | agent.py + frontend | Aucun (critique) |
+
+### Thryve API — détails d'auth
+
+L'API QA Thryve utilise un double système Basic Auth (non standard) :
+
+```
+POST https://api-qa.thryve.de/v5/dailyDynamicValues
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic base64(THRYVE_WEB_USER:THRYVE_WEB_PASSWORD)
+AppAuthorization: Basic base64(THRYVE_APP_AUTH_ID:THRYVE_APP_AUTH_SECRET)
+
+Body (form-urlencoded) :
+  authenticationToken = endUserId du sandbox
+  startDay / endDay = YYYY-MM-DD
+  valueTypes = 1000,2000,3001 (steps, sleep, resting HR)
+  displayTypeName = true
+  detailed = true
+```
+
+Biomarkers utilisés : Steps (1000), SleepDuration (2000, en minutes), RestingHR (3001).
+L'agent fetch 7 jours (current) et 30 jours (baseline) pour calculer les trends.
 
 ---
 
@@ -327,65 +419,50 @@ frontend/
 
 ### Agent Python
 
-Toutes les versions sont les dernières disponibles sur PyPI. Vérifié via `pip install` + import test.
-
-| Package | Version | Date release | Dernière sur PyPI ? | Vérifié |
-|---------|---------|-------------|--------------------|---------| 
-| livekit-agents | 1.5.2 | 8 avril 2026 | ✅ Oui | imports OK |
-| livekit-plugins-mistralai | 1.5.2 | 8 avril 2026 | ✅ Oui | STT, TTS, LLM exportés |
-| livekit-plugins-silero | 1.5.2 | 8 avril 2026 | ✅ Oui | VAD.load() OK |
-| livekit-plugins-turn-detector | 1.5.2 | 8 avril 2026 | ✅ Oui | MultilingualModel OK |
-| linkup-sdk | 0.13.0 | 2 mars 2026 | ✅ Oui | async_search() OK |
-| mistralai | 2.3.2 | 10 avril 2026 | ✅ Oui (sorti aujourd'hui) | requis par plugin |
-
-### Modèles Mistral (vérifiés depuis le source code du plugin + docs Mistral)
-
-| Type | ID dans agent.py | Existe ? | Détails |
-|------|-----------------|----------|---------|
-| STT | `voxtral-mini-transcribe-realtime-2602` | ✅ Oui | Streaming realtime, 4B params, <500ms latence |
-| LLM | `mistral-small-latest` | ✅ Oui | → Mistral Small 4 (119B MoE), function calling natif |
-| TTS voice | `en_paul_confident` | ✅ Oui | 1 des 30 voix (4 personas × émotions) |
-| TTS model | `voxtral-mini-tts-latest` (défaut) | ✅ Oui | Auto-sélectionné par le plugin |
+| Package | Version | Rôle |
+|---------|---------|------|
+| livekit-agents | 1.5.2 | Framework agent + orchestration |
+| livekit-plugins-mistralai | 1.5.2 | STT (Voxtral Mini) + LLM (Mistral Small 4) |
+| livekit-plugins-elevenlabs | 1.5.2 | TTS — Jessica voice, Flash v2.5 (~75ms TTFB) |
+| livekit-plugins-silero | 1.5.2 | VAD (Voice Activity Detection) |
+| livekit-plugins-turn-detector | 1.5.2 | Multilingual turn detection |
+| linkup-sdk | 0.13.0+ | Recherche web async |
+| mistralai | 2.3.2 | API directe Mistral (extraction noms providers) |
+| httpx | 0.23.0+ | Client HTTP async (Thryve API) |
+| python-dotenv | 1.0.0+ | Chargement .env |
 
 ### Frontend npm
 
-Versions vérifiées contre le registre npm et les peer dependencies de chaque package.
-Pour le choix des versions, on a utilisé comme référence le [agents-playground](https://github.com/livekit/agents-playground)
-de LiveKit (leur app de test interne). **On n'utilise pas le playground dans notre projet** — c'est juste
-une source fiable pour savoir quelles combinaisons de versions LiveKit teste en interne.
+| Package | Version | Rôle |
+|---------|---------|------|
+| next | 15.5.15 | Framework React (CVE-2026-23869 fixé) |
+| @livekit/components-react | ^2.9.20 | Hooks : useVoiceAssistant, useTextStream, BarVisualizer |
+| @livekit/components-styles | ^1.2.0 | Styles composants LiveKit |
+| livekit-client | ^2.18.1 | Client WebRTC |
+| livekit-server-sdk | ^2.15.1 | Génération tokens côté serveur |
+| react / react-dom | ^19.0.0 | UI |
+| tailwindcss | ^4 | CSS |
+| tslib | ^2.6.2 | Peer dep LiveKit React |
 
-| Package | Notre version | Dernière stable | Peer deps | OK ? |
-|---------|--------------|----------------|-----------|------|
-| next | 15.5.15 (pinned) | 15.5.15 (16.2.3 = major suivant) | react ^19 | ✅ CVE-2026-23869 fixé |
-| @livekit/components-react | ^2.9.20 | 2.9.20 | react >=18, livekit-client ^2.17.2, tslib ^2.6.2 | ✅ |
-| @livekit/components-styles | ^1.2.0 | 1.2.0 | aucun | ✅ |
-| livekit-client | ^2.18.1 | 2.18.1 | aucun requis | ✅ |
-| livekit-server-sdk | ^2.15.1 | 2.15.1 | node >=18 | ✅ |
-| react / react-dom | ^19.0.0 | 19.2.5 | — | ✅ |
-| tslib | ^2.6.2 | 2.8.1 | — | ✅ peer dep LiveKit React |
-| tailwindcss | ^4 | 4.2.2 | — | ✅ |
+### Hooks et composants React LiveKit
 
-**Pourquoi Next.js 15 et pas 16 ?** Next 16 est sorti récemment (16.2.3). La migration serait possible
-(notre code n'utilise aucune API dépréciée), mais les packages LiveKit n'ont pas encore été testés sur 16
-par l'équipe LiveKit. Pour un hackathon, on reste sur la version stable testée.
+| Export | Status | Usage |
+|--------|--------|-------|
+| `useVoiceAssistant()` | @beta | `{ state, audioTrack, videoTrack, agentTranscriptions }` |
+| `useTextStream(topic)` | @beta | Reçoit CTAs + alertes sur "live-updates", summary sur "call-summary" |
+| `BarVisualizer` | @beta | Visualiseur audio pendant l'appel |
+| `LiveKitRoom` | stable | Connexion WebRTC |
+| `RoomAudioRenderer` | stable | Rendu audio de l'agent |
+| `VideoTrack` | stable | Rendu vidéo avatar (si disponible) |
 
-**Aucun package LiveKit ne déclare de peer dependency sur Next.js.** Ce sont des composants React purs.
-Ils fonctionnent avec n'importe quel framework React (Next, Vite, Remix, etc.).
+### Modèles AI
 
-### Hooks et composants React (vérifiés via `require()` sur le package installé)
-
-| Export | Existe ? | Status | API |
-|--------|---------|--------|-----|
-| `useVoiceAssistant()` | ✅ function | @beta | → `{ state, audioTrack, agentTranscriptions }` |
-| `useTextStream(topic)` | ✅ function | @beta | → `{ textStreams: TextStreamData[] }` |
-| `BarVisualizer` | ✅ object | @beta | Props: `state`, `trackRef`, `barCount` |
-| `DisconnectButton` | ✅ object | @public | Props: standard button + `stopTracks` |
-| `RoomAudioRenderer` | ✅ function | — | Renders agent audio |
-| `LiveKitRoom` | ✅ object | — | Props: `serverUrl`, `token`, `connect`, `audio` |
-
-### Points d'attention
-
-1. **`useTextStream` et `BarVisualizer` sont `@beta`** — API stable en pratique (utilisée par LiveKit eux-mêmes), mais signature pourrait changer
-2. **`mistralai` 2.3.2 sorti aujourd'hui** — développement actif (3 releases en 1 semaine). Si bug → pin `mistralai==2.3.2` dans requirements.txt
-3. **Le plugin turn-detector exclut `transformers` 4.57.2 et 4.57.3** — versions buggées. Pas un problème tant qu'on ne les force pas
-4. **Le STT realtime auto-charge Silero VAD** si aucun VAD n'est fourni. On en fournit un via prewarm → pas de conflit
+| Type | ID | Provider | Détails |
+|------|----|----------|---------|
+| STT | `voxtral-mini-transcribe-realtime-2602` | Mistral | Streaming, 4B params, <500ms |
+| LLM | `mistral-small-latest` → Mistral Small 4 | Mistral | 119B MoE, function calling natif |
+| TTS | Jessica (`cgSgspJ2msm6clMCkdW9`) / `eleven_flash_v2_5` | ElevenLabs | ~75ms TTFB, 32 langues |
+| Provider extraction | `mistral-small-latest` | Mistral | JSON extraction de résultats Linkup |
+| Summary analysis | `mistral-small-latest` | Mistral | Analyse transcript → patient_state + compliance |
+| Doctor chat | `mistral-small-latest` | Mistral | Dr. Claire Morel avec contexte appel |
+| Translation | `mistral-small-latest` | Mistral | Traduction JSON dynamique FR↔EN |
