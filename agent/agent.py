@@ -40,7 +40,7 @@ from livekit.agents import (
     function_tool,
 )
 from livekit.agents import room_io
-from livekit.plugins import elevenlabs, lemonslice, mistralai, silero
+from livekit.plugins import elevenlabs, mistralai, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 # Avatar image — hosted in the repo (frontend/public/maude.png)
@@ -640,18 +640,10 @@ async def entrypoint(ctx: JobContext):
 
     ctx.add_shutdown_callback(lambda: send_summary())
 
-    # --- Start avatar (LemonSlice) ---
-    avatar = lemonslice.AvatarSession(
-        agent_image_url=AVATAR_IMAGE_URL,
-        agent_prompt="Be warm and expressive. Nod when listening. Smile gently.",
-    )
-    await avatar.start(session, room=ctx.room)
-
-    # --- Start agent (audio goes to avatar, not directly to room) ---
+    # --- Start agent (audio goes directly to room) ---
     await session.start(
         agent=agent,
         room=ctx.room,
-        room_options=room_io.RoomOptions(audio_output=False),
     )
 
     # --- Auto-end call after MAX_CALL_DURATION ---
