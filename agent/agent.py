@@ -268,15 +268,22 @@ class AlanHealthAgent(Agent):
                     "type": "provider_search",
                     "description": f"Searched for {specialty} in {location}",
                 })
-                # Update same CTA with result
+                # Update CTA with first useful lines of result (no raw URLs)
+                import re
+                clean = re.sub(r'https?://\S+', '', result.answer).strip()
+                # Take first 120 chars, cut at last sentence boundary
+                preview = clean[:120]
+                dot = preview.rfind('.')
+                if dot > 40:
+                    preview = preview[:dot + 1]
                 await self._send_cta("provider", label, {
-                    "description": f"{specialty} · {location}",
+                    "description": preview or f"{specialty} · {location}",
                 }, cta_id=cta_id)
                 return f"Search results for {specialty} in {location}:\n{result.answer}"
             except Exception as e:
                 logger.warning(f"Linkup provider search error: {e}")
 
-        # Update same CTA (no duplicate)
+        # No Linkup key — fallback
         await self._send_cta("provider", label, {
             "description": f"{specialty} · {location}",
         }, cta_id=cta_id)
