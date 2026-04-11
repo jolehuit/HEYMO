@@ -262,7 +262,17 @@ function ActiveCallPhone({
         if (parsed.type === "alert") setAlerts((prev) => [...prev, parsed as LiveAlert]);
         if (parsed.type === "cta") {
           const ctaData = parsed as LiveCTA;
-          setCtas((prev) => [...prev, ctaData]);
+          setCtas((prev) => {
+            if (ctaData.id) {
+              const idx = prev.findIndex((c) => c.id === ctaData.id);
+              if (idx >= 0) {
+                const updated = [...prev];
+                updated[idx] = ctaData;
+                return updated;
+              }
+            }
+            return [...prev, ctaData];
+          });
           onCtaReceived(ctaData);
         }
       } catch { /* ignore */ }

@@ -89,10 +89,13 @@ class AlanHealthAgent(Agent):
     # CTA HELPER — sends live call-to-action cards to the frontend
     # ------------------------------------------------------------------
 
-    async def _send_cta(self, action: str, label: str, data: dict | None = None):
-        """Send a call-to-action card to the frontend during the call."""
+    async def _send_cta(self, action: str, label: str, data: dict | None = None, cta_id: str | None = None):
+        """Send a call-to-action card to the frontend during the call.
+        If cta_id is provided, the frontend should replace any existing CTA with the same id."""
         if self._room:
-            cta = {"type": "cta", "action": action, "label": label}
+            cta: dict = {"type": "cta", "action": action, "label": label}
+            if cta_id:
+                cta["id"] = cta_id
             if data:
                 cta["data"] = data
             await self._room.local_participant.send_text(
@@ -123,18 +126,15 @@ class AlanHealthAgent(Agent):
             procedure: The medical procedure to look up, e.g. 'specialist_consultation',
                       'physiotherapy', 'blood_test', 'ultrasound', 'mri'
         """
-        # Send CTA immediately so it appears on screen fast
         label = f"Remboursement {procedure}" if self._lang == "fr" else f"Reimbursement — {procedure}"
-        await self._send_cta("reimbursement", label, {
-            "description": "Calcul en cours..." if self._lang == "fr" else "Calculating...",
-        })
+        cta_id = f"reimb-{procedure}"
+        await self._send_cta("reimbursement", label, {"description": "..."}, cta_id=cta_id)
         from tools import get_reimbursement_info
         result = await get_reimbursement_info(procedure, self._patient)
         self._reimbursement_discussed = result
-        # Update CTA with real figures
         oop = result.get("out_of_pocket", "?")
         desc = f"Reste à charge : {oop}€" if self._lang == "fr" else f"Out of pocket: {oop}€"
-        await self._send_cta("reimbursement", label, {"description": desc})
+        await self._send_cta("reimbursement", label, {"description": desc}, cta_id=cta_id)
         return json.dumps(result, indent=2)
 
     @function_tool
@@ -244,11 +244,13 @@ class AlanHealthAgent(Agent):
                       'endocrinologist', 'gynecologist', 'physiotherapist'
         """
         location = self._patient.get("location", "Paris")
-        # Send CTA immediately so it appears on screen fast
-        label = f"{specialty} — {location}" if self._lang == "fr" else f"{specialty} — {location}"
+        label = f"{specialty} — {location}"
+        cta_id = f"provider-{specialty}"
+
+        # Send loading CTA immediately
         await self._send_cta("provider", label, {
-            "description": "Recherche en cours..." if self._lang == "fr" else "Searching...",
-        })
+            "description": "..." if self._lang == "fr" else "...",
+        }, cta_id=cta_id)
 
         linkup_api_key = os.environ.get("LINKUP_API_KEY")
         if linkup_api_key:
@@ -266,18 +268,19 @@ class AlanHealthAgent(Agent):
                     "type": "provider_search",
                     "description": f"Searched for {specialty} in {location}",
                 })
-                # Update CTA with short result (no raw URLs)
+                # Update same CTA with result
                 await self._send_cta("provider", label, {
                     "description": f"{specialty} · {location}",
-                })
+                }, cta_id=cta_id)
                 return f"Search results for {specialty} in {location}:\n{result.answer}"
             except Exception as e:
                 logger.warning(f"Linkup provider search error: {e}")
 
+        # Update same CTA (no duplicate)
         await self._send_cta("provider", label, {
             "description": f"{specialty} · {location}",
-        })
-        return f"I can help you find a {specialty} in {location}. You can find practitioners near you via Alan Map."
+        }, cta_id=cta_id)
+        return f"Results for {specialty} in {location} shown on screen."
 
     @function_tool
     async def request_teleconsultation(self, context: RunContext) -> str:

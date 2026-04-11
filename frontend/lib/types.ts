@@ -68,6 +68,7 @@ export interface LiveAlert {
 
 export interface LiveCTA {
   type: "cta";
+  id?: string;
   action: "reimbursement" | "appointment" | "provider" | "teleconsultation" | "doctor_connect";
   label: string;
   data?: Record<string, unknown>;
