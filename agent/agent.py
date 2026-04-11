@@ -1,5 +1,5 @@
 """
-HeyMo — Voice AI Agent for Alan health follow-up calls
+Maude — Voice AI Agent for Alan health follow-up calls
 
 Run locally:  uv run agent.py dev
 Deploy:       lk agent create --secrets MISTRAL_API_KEY=xxx,ELEVEN_API_KEY=xxx,LINKUP_API_KEY=xxx
@@ -225,7 +225,7 @@ async def generate_summary(agent: AlanHealthAgent) -> dict:
     for msg in agent.session.history.messages:
         text = msg.text_content
         if msg.role in ("user", "assistant") and text:
-            speaker = agent._patient["name"].split()[0] if msg.role == "user" else "HeyMo"
+            speaker = agent._patient["name"].split()[0] if msg.role == "user" else "Maude"
             transcript_lines.append(f"{speaker}: {text}")
 
     transcript = "\n".join(transcript_lines)
@@ -417,7 +417,7 @@ async def entrypoint(ctx: JobContext):
         event_desc = patient["recent_event"].get("description_fr", patient["recent_event"]["description"]).lower()
         event_date = format_date_fr(patient["recent_event"]["date"])
         await session.say(
-            f"Bonjour {first_name}, c'est HeyMo, votre assistant santé Alan. "
+            f"Bonjour {first_name}, c'est Maude, votre assistant santé Alan. "
             f"Je vous appelle pour prendre de vos nouvelles après votre {event_desc} du {event_date}. "
             f"Comment vous sentez-vous ?",
             allow_interruptions=False,
@@ -426,7 +426,7 @@ async def entrypoint(ctx: JobContext):
         event_desc = patient["recent_event"]["description"].lower()
         event_date = patient["recent_event"]["date"]
         await session.say(
-            f"Hi {first_name}, this is HeyMo from Alan. "
+            f"Hi {first_name}, this is Maude from Alan. "
             f"I'm calling to check in on you after your {event_desc} on {event_date}. "
             f"How have you been feeling?",
             allow_interruptions=False,
