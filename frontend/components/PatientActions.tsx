@@ -7,11 +7,13 @@
 
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import { CallSummary } from "@/lib/types";
 import { PatientProfile } from "@/lib/patients";
 import { useTranslation } from "@/lib/i18n";
 import PhoneFrame from "./PhoneFrame";
+import DoctorChat from "./DoctorChat";
 
 interface PatientActionsProps {
   summary: CallSummary;
@@ -43,6 +45,11 @@ export default function PatientActions({ summary, patient, onViewDashboard, onBa
   const isFr = locale === "fr";
   const slots = isFr ? MOCK_SLOTS_FR : MOCK_SLOTS_EN;
   const doctors = patient.nearbyDoctors || [];
+  const [showDoctorChat, setShowDoctorChat] = useState(false);
+
+  if (showDoctorChat) {
+    return <DoctorChat summary={summary} patient={patient} onBack={() => setShowDoctorChat(false)} />;
+  }
 
   const appointmentActions = summary.actions.filter((a) => a.type === "appointment");
   const otherActions = summary.actions.filter((a) => a.type !== "appointment");
@@ -88,7 +95,10 @@ export default function PatientActions({ summary, patient, onViewDashboard, onBa
                 </p>
               </div>
             </div>
-            <button className="w-full mt-3 py-2 bg-white rounded-[10px] text-[12px] font-semibold text-[#5C59F3] active:scale-95 transition-transform">
+            <button
+              onClick={() => setShowDoctorChat(true)}
+              className="w-full mt-3 py-2 bg-white rounded-[10px] text-[12px] font-semibold text-[#5C59F3] active:scale-95 transition-transform"
+            >
               {isFr ? "💬 Démarrer le chat" : "💬 Start chat"}
             </button>
           </div>

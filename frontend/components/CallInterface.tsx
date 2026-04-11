@@ -203,6 +203,7 @@ function ActiveCallPhone({
   const [ctas, setCtas] = useState<LiveCTA[]>([]);
   const [callDuration, setCallDuration] = useState(0);
   const [userTexts, setUserTexts] = useState<{ text: string; time: number }[]>([]);
+  const [expandedCta, setExpandedCta] = useState<number | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 
   const { textStreams: liveUpdates } = useTextStream("live-updates");
@@ -364,13 +365,55 @@ function ActiveCallPhone({
             reimbursement: "💰", appointment: "📅", provider: "📍",
             teleconsultation: "🏥", doctor_connect: "👨‍⚕️",
           };
+          const isExpanded = expandedCta === i;
+          const data = cta.data || {};
           return (
-            <div key={`cta-${i}`} className="w-full bg-[#F0F0FF] rounded-[12px] px-3 py-2.5 mb-2 flex items-center gap-2.5 animate-[fadeInUp_0.3s_ease-out]">
-              <div className="w-7 h-7 rounded-[8px] bg-[#5C59F3] flex items-center justify-center text-xs shrink-0">
-                {ctaIcons[cta.action] || "📋"}
-              </div>
-              <p className="text-[11px] font-semibold text-[#5C59F3] flex-1">{cta.label}</p>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5C59F3" strokeWidth="2.5" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
+            <div key={`cta-${i}`} className="w-full mb-2 animate-[fadeInUp_0.3s_ease-out]">
+              <button
+                onClick={() => setExpandedCta(isExpanded ? null : i)}
+                className="w-full bg-[#F0F0FF] rounded-[12px] px-3 py-2.5 flex items-center gap-2.5 active:scale-[0.98] transition-transform"
+              >
+                <div className="w-7 h-7 rounded-[8px] bg-[#5C59F3] flex items-center justify-center text-xs shrink-0">
+                  {ctaIcons[cta.action] || "📋"}
+                </div>
+                <p className="text-[11px] font-semibold text-[#5C59F3] flex-1 text-left">{cta.label}</p>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5C59F3" strokeWidth="2.5" strokeLinecap="round"
+                  className={`transition-transform ${isExpanded ? "rotate-90" : ""}`}>
+                  <path d="M9 18l6-6-6-6"/>
+                </svg>
+              </button>
+              {isExpanded && (
+                <div className="bg-white border border-[#F0F0FF] rounded-b-[12px] px-3 py-2.5 -mt-1 space-y-1.5">
+                  {cta.action === "provider" && (
+                    <>
+                      {data.result && <p className="text-[10px] text-[#3C3C43] leading-relaxed">{String(data.result).slice(0, 200)}</p>}
+                      {!data.result && data.specialty && <p className="text-[10px] text-[#3C3C43]">{String(data.specialty)} — {String(data.location)}</p>}
+                      <p className="text-[10px] text-[#5C59F3] font-semibold">{locale === "fr" ? "📍 Voir sur Alan Map" : "📍 View on Alan Map"}</p>
+                    </>
+                  )}
+                  {cta.action === "reimbursement" && (
+                    <>
+                      {data.average_price && <p className="text-[10px] text-[#3C3C43]">{locale === "fr" ? "Prix moyen" : "Average price"}: {String(data.average_price)}€</p>}
+                      {data.out_of_pocket !== undefined && <p className="text-[10px] font-semibold text-[#2AA79C]">{locale === "fr" ? "Reste à charge" : "Out of pocket"}: {String(data.out_of_pocket)}€</p>}
+                    </>
+                  )}
+                  {cta.action === "appointment" && (
+                    <>
+                      <p className="text-[10px] text-[#3C3C43]">{data.description ? String(data.description) : cta.label}</p>
+                      {data.date && <p className="text-[10px] text-[#5C59F3] font-semibold">📅 {String(data.date)}</p>}
+                    </>
+                  )}
+                  {cta.action === "teleconsultation" && (
+                    <p className="text-[10px] text-[#5C59F3] font-semibold">{locale === "fr" ? "🏥 Ouvrir dans l'app Alan" : "🏥 Open in Alan app"}</p>
+                  )}
+                  {cta.action === "doctor_connect" && (
+                    <>
+                      <p className="text-[10px] text-[#3C3C43]">{locale === "fr" ? "Un médecin recevra le contexte de cet appel." : "A doctor will receive this call's context."}</p>
+                      <p className="text-[10px] text-[#5C59F3] font-semibold">{locale === "fr" ? "👨‍⚕️ Chat disponible après l'appel" : "👨‍⚕️ Chat available after the call"}</p>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}

@@ -304,7 +304,7 @@ class AlanHealthAgent(Agent):
         """
         transcript_lines = []
         if self.session:
-            for msg in self.session.history.messages:
+            for msg in self.session.history.messages():
                 text = msg.text_content
                 if msg.role in ("user", "assistant") and text:
                     speaker = self._patient["name"].split()[0] if msg.role == "user" else "Maude"
@@ -474,11 +474,11 @@ async def generate_summary(agent: AlanHealthAgent) -> dict:
     duration = (datetime.now() - agent._call_start).total_seconds()
 
     # --- Build transcript from conversation history ---
-    # session.history → ChatContext, .messages → list[ChatMessage]
+    # session.history → ChatContext, .messages() → list[ChatMessage]
     # ChatMessage.text_content is a @property returning str | None
     # ChatRole is Literal['developer', 'system', 'user', 'assistant']
     transcript_lines = []
-    for msg in agent.session.history.messages:
+    for msg in agent.session.history.messages():
         text = msg.text_content
         if msg.role in ("user", "assistant") and text:
             speaker = agent._patient["name"].split()[0] if msg.role == "user" else "Maude"
