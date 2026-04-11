@@ -411,7 +411,8 @@ async def entrypoint(ctx: JobContext):
         await session.say(
             f"Bonjour {first_name}, c'est Maude, votre assistant santé Alan. "
             f"Je vous appelle pour prendre de vos nouvelles après votre {event_desc} du {event_date}. "
-            f"Comment vous sentez-vous ?"
+            f"Comment vous sentez-vous ?",
+            allow_interruptions=False,
         )
     else:
         event_desc = patient["recent_event"]["description"].lower()
@@ -419,7 +420,8 @@ async def entrypoint(ctx: JobContext):
         await session.say(
             f"Hi {first_name}, this is Maude, your Alan health assistant. "
             f"I'm calling to check in after your {event_desc} on {event_date}. "
-            f"How have you been feeling?"
+            f"How have you been feeling?",
+            allow_interruptions=False,
         )
 
 
