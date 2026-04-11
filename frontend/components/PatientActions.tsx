@@ -149,27 +149,46 @@ export default function PatientActions({ summary, patient, liveCtas = [], onView
             </div>
           )}
 
-          {/* ─── 4. PROFESSIONNELS PROCHES (from provider CTAs + patient data) ─── */}
+          {/* ─── 4. PROFESSIONNELS RECOMMANDÉS ─── */}
           {hasProviders && (
             <div className="bg-white rounded-[16px] border border-[#F0F0F2] p-3.5 shadow-sm">
-              <div className="flex items-center justify-between mb-2.5">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-[8px] bg-[#EBFAF9] flex items-center justify-center">📍</div>
-                  <p className="text-[13px] font-bold text-[#282830]">{isFr ? "Professionnels recommandés" : "Recommended professionals"}</p>
-                </div>
+              <div className="flex items-center gap-2 mb-2.5">
+                <div className="w-7 h-7 rounded-[8px] bg-[#EBFAF9] flex items-center justify-center">📍</div>
+                <p className="text-[13px] font-bold text-[#282830]">{isFr ? "Professionnels recommandés" : "Recommended professionals"}</p>
               </div>
 
-              {providerCtas.map((cta, i) => {
-                const d = cta.data || {};
-                const desc = d.description ? String(d.description) : "";
-                return (
-                  <div key={`provider-${i}`} className="bg-[#F0F0FF] rounded-[12px] p-2.5 mb-2">
-                    <p className="text-[11px] font-bold text-[#5C59F3]">{cta.label}</p>
-                    {desc && desc !== "..." && <p className="text-[10px] text-[#3C3C43] leading-relaxed mt-1">{desc}</p>}
-                  </div>
-                );
-              })}
-
+              <div className="space-y-2">
+                {providerCtas.map((cta, i) => {
+                  const d = cta.data || {};
+                  const desc = d.description ? String(d.description) : "";
+                  const specialty = d.specialty ? String(d.specialty) : "";
+                  const fullResult = d.full_result ? String(d.full_result) : "";
+                  const id = `provider-${i}`;
+                  const isOpen = expandedItem === id;
+                  return (
+                    <button key={`prov-${i}`} onClick={() => toggle(id)} className="w-full text-left">
+                      <div className="bg-white border border-[#F0F0F2] rounded-[14px] overflow-hidden shadow-sm">
+                        {/* Mini map */}
+                        <div className="h-[50px] bg-gradient-to-b from-[#D4E8D0] to-[#E8F5E9] relative">
+                          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-[#5C59F3] border-2 border-white shadow flex items-center justify-center">
+                            <span className="text-white text-[8px]">📍</span>
+                          </div>
+                        </div>
+                        <div className="px-3 py-2.5">
+                          <p className="text-[12px] font-bold text-[#282830]">{cta.label}</p>
+                          {desc && desc !== "..." && <p className="text-[10px] text-[#8E8E93] mt-0.5">{desc}</p>}
+                          {specialty && <span className="inline-block mt-1 text-[9px] bg-[#F0F0FF] text-[#5C59F3] px-2 py-0.5 rounded-full font-medium">{specialty}</span>}
+                        </div>
+                        {isOpen && fullResult && (
+                          <div className="px-3 pb-2.5 border-t border-[#F5F5F7]">
+                            <p className="text-[10px] text-[#3C3C43] leading-relaxed pt-2">{fullResult}</p>
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
 

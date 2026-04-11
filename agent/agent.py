@@ -248,20 +248,18 @@ class AlanHealthAgent(Agent):
                       'endocrinologist', 'gynecologist', 'physiotherapist'
         """
         location = self._patient.get("location", "Paris")
-        label = f"{specialty} — {location}"
         cta_id = f"provider-{specialty}"
 
-        # Send loading CTA immediately
-        await self._send_cta("provider", label, {
-            "description": "..." if self._lang == "fr" else "...",
-        }, cta_id=cta_id)
+        # Loading CTA
+        loading_label = f"Recherche {specialty}..." if self._lang == "fr" else f"Searching {specialty}..."
+        await self._send_cta("provider", loading_label, {"description": "..."}, cta_id=cta_id)
 
         linkup_api_key = os.environ.get("LINKUP_API_KEY")
         if linkup_api_key:
             try:
                 from linkup import LinkupClient
                 client = LinkupClient()
-                query = f"{specialty} conventionné secteur 1 {location} prendre rendez-vous"
+                query = f"{specialty} adresse téléphone {location} prendre rendez-vous"
                 result = await client.async_search(
                     query=query,
                     depth="standard",
@@ -272,24 +270,36 @@ class AlanHealthAgent(Agent):
                     "type": "provider_search",
                     "description": f"Searched for {specialty} in {location}",
                 })
-                # Update CTA with first useful lines of result (no raw URLs)
+                # Parse result to extract structured provider info
                 import re
-                clean = re.sub(r'https?://\S+', '', result.answer).strip()
-                # Take first 120 chars, cut at last sentence boundary
-                preview = clean[:120]
-                dot = preview.rfind('.')
-                if dot > 40:
-                    preview = preview[:dot + 1]
+                answer = result.answer or ""
+                # Clean URLs for display
+                clean = re.sub(r'https?://\S+', '', answer).strip()
+                clean = re.sub(r'\s+', ' ', clean)
+                # Try to extract a provider name (first line often has it)
+                lines = [l.strip() for l in clean.split('.') if l.strip()]
+                provider_name = lines[0][:80] if lines else f"{specialty} — {location}"
+                address_hint = lines[1][:80] if len(lines) > 1 else location
+
+                label = provider_name if self._lang == "fr" else provider_name
                 await self._send_cta("provider", label, {
-                    "description": preview or f"{specialty} · {location}",
+                    "description": address_hint,
+                    "specialty": specialty,
+                    "location": location,
+                    "full_result": clean[:300],
+                    "show_map": True,
                 }, cta_id=cta_id)
-                return f"Search results for {specialty} in {location}:\n{result.answer}"
+                return f"Search results for {specialty} in {location}:\n{answer}"
             except Exception as e:
                 logger.warning(f"Linkup provider search error: {e}")
 
-        # No Linkup key — fallback
+        # No Linkup — fallback
+        label = f"{specialty} — {location}"
         await self._send_cta("provider", label, {
-            "description": f"{specialty} · {location}",
+            "description": location,
+            "specialty": specialty,
+            "location": location,
+            "show_map": True,
         }, cta_id=cta_id)
         return f"Results for {specialty} in {location} shown on screen."
 

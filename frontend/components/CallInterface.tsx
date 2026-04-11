@@ -213,7 +213,6 @@ function ActiveCallPhone({
   const [ctas, setCtas] = useState<LiveCTA[]>([]);
   const [callDuration, setCallDuration] = useState(0);
   const [userTexts, setUserTexts] = useState<{ text: string; time: number }[]>([]);
-  const [expandedCta, setExpandedCta] = useState<number | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 
   const { textStreams: liveUpdates } = useTextStream("live-updates");
@@ -383,40 +382,47 @@ function ActiveCallPhone({
 
         {/* Live CTAs from agent */}
         {ctas.map((cta, i) => {
-          const ctaConfig: Record<string, { icon: string; bg: string }> = {
-            reimbursement: { icon: "💰", bg: "bg-[#FFF3E0]" },
-            appointment: { icon: "📅", bg: "bg-[#5C59F3]" },
-            provider: { icon: "📍", bg: "bg-[#EBFAF9]" },
-            teleconsultation: { icon: "🏥", bg: "bg-[#5C59F3]" },
-            doctor_connect: { icon: "👨‍⚕️", bg: "bg-[#5C59F3]" },
-          };
-          const cfg = ctaConfig[cta.action] || { icon: "📋", bg: "bg-[#5C59F3]" };
           const data = cta.data || {};
-          const hasDetail = Boolean(data.result || data.description);
-          const isExpanded = expandedCta === i;
+          const desc = data.description ? String(data.description) : "";
+          const isLoading = desc === "...";
 
+          // Provider CTA with map card
+          if (cta.action === "provider" && data.show_map && !isLoading) {
+            return (
+              <div key={`cta-${i}`} className="w-full mb-2 animate-[fadeInUp_0.3s_ease-out]">
+                <div className="bg-white border border-[#F0F0F2] rounded-[14px] overflow-hidden shadow-sm">
+                  {/* Mini map */}
+                  <div className="h-[80px] bg-gradient-to-b from-[#D4E8D0] to-[#E8F5E9] relative">
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[#5C59F3] border-2 border-white shadow-lg flex items-center justify-center">
+                      <span className="text-white text-xs">📍</span>
+                    </div>
+                    <span className="absolute bottom-1.5 right-2 text-[8px] text-[#8E8E93] bg-white/80 px-1.5 py-0.5 rounded">Alan Map</span>
+                  </div>
+                  {/* Provider info */}
+                  <div className="px-3 py-2.5">
+                    <p className="text-[11px] font-bold text-[#282830]">{cta.label}</p>
+                    {desc && <p className="text-[10px] text-[#8E8E93] mt-0.5">{desc}</p>}
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          // Other CTAs — compact card
+          const icons: Record<string, string> = {
+            reimbursement: "💰", appointment: "📅", provider: "📍",
+            teleconsultation: "🏥", doctor_connect: "👨‍⚕️",
+          };
           return (
             <div key={`cta-${i}`} className="w-full mb-1.5 animate-[fadeInUp_0.3s_ease-out]">
-              <button
-                onClick={() => hasDetail && setExpandedCta(isExpanded ? null : i)}
-                className="w-full bg-white border border-[#F0F0F2] rounded-[12px] px-3 py-2.5 flex items-center gap-2.5 active:scale-[0.98] transition-transform shadow-sm"
-              >
-                <div className={`w-7 h-7 rounded-[8px] ${cfg.bg} flex items-center justify-center text-xs shrink-0`}>
-                  {cfg.icon}
+              <div className="bg-white border border-[#F0F0F2] rounded-[12px] px-3 py-2.5 flex items-center gap-2.5 shadow-sm">
+                <span className="text-sm">{icons[cta.action] || "📋"}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-semibold text-[#282830]">{cta.label}</p>
+                  {desc && desc !== "..." && <p className="text-[10px] text-[#8E8E93] mt-0.5">{desc}</p>}
+                  {isLoading && <div className="flex gap-1 mt-1"><div className="w-1.5 h-1.5 rounded-full bg-[#9DA3BA] animate-bounce" /><div className="w-1.5 h-1.5 rounded-full bg-[#9DA3BA] animate-bounce" style={{animationDelay:"150ms"}} /><div className="w-1.5 h-1.5 rounded-full bg-[#9DA3BA] animate-bounce" style={{animationDelay:"300ms"}} /></div>}
                 </div>
-                <p className="text-[11px] font-semibold text-[#282830] flex-1 text-left">{cta.label}</p>
-                {hasDetail && (
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#5C59F3" strokeWidth="2.5" strokeLinecap="round"
-                    className={`transition-transform ${isExpanded ? "rotate-90" : ""}`}>
-                    <path d="M9 18l6-6-6-6"/>
-                  </svg>
-                )}
-              </button>
-              {isExpanded && hasDetail && (
-                <div className="bg-[#F5F8FE] border border-[#ECF1FC] border-t-0 rounded-b-[12px] px-3 py-2 space-y-1">
-                  {data.description ? <p className="text-[10px] text-[#3C3C43] leading-relaxed">{String(data.description)}</p> : null}
-                </div>
-              )}
+              </div>
             </div>
           );
         })}
