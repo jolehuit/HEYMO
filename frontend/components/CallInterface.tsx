@@ -212,30 +212,35 @@ function ActiveCallPhone({
     onTranscriptionUpdate(agentTranscriptions.map((t) => t.text));
   }, [agentTranscriptions, onTranscriptionUpdate]);
 
-  // Browser speech recognition for user's voice
+  // Browser speech recognition for user's voice (runs alongside LiveKit)
+  const [interimText, setInterimText] = useState("");
   useEffect(() => {
-    const SpeechRecognition = (window as unknown as Record<string, unknown>).SpeechRecognition || (window as unknown as Record<string, unknown>).webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
+    const SR = (window as unknown as Record<string, unknown>).SpeechRecognition || (window as unknown as Record<string, unknown>).webkitSpeechRecognition;
+    if (!SR) return;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const recognition = new (SpeechRecognition as any)();
+    const recognition = new (SR as any)();
     recognition.continuous = true;
-    recognition.interimResults = false;
+    recognition.interimResults = true;
     recognition.lang = locale === "fr" ? "fr-FR" : "en-US";
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
+      let interim = "";
       for (let i = event.resultIndex; i < event.results.length; i++) {
+        const text = event.results[i][0].transcript.trim();
         if (event.results[i].isFinal) {
-          const text = event.results[i][0].transcript.trim();
-          if (text) {
-            setUserTexts((prev) => [...prev, { text, time: Date.now() }]);
-          }
+          if (text) setUserTexts((prev) => [...prev, { text, time: Date.now() }]);
+          setInterimText("");
+        } else {
+          interim = text;
         }
       }
+      if (interim) setInterimText(interim);
     };
 
-    recognition.onend = () => { try { recognition.start(); } catch { /* ignore */ } };
+    recognition.onerror = () => { /* ignore — mic may be busy with LiveKit */ };
+    recognition.onend = () => { setTimeout(() => { try { recognition.start(); } catch { /* ignore */ } }, 500); };
 
     try { recognition.start(); } catch { /* ignore */ }
     return () => { try { recognition.stop(); } catch { /* ignore */ } };
@@ -330,10 +335,13 @@ function ActiveCallPhone({
           {t(stateKey)}
         </div>
 
-        {/* Live subtitle */}
-        <div className="w-full h-10 flex items-center justify-center mb-2 px-2">
+        {/* Live subtitle — shows what Maude says OR what user is saying */}
+        <div className="w-full min-h-[28px] flex items-center justify-center mb-2 px-2">
           {isSpeaking && lastTranscription && (
-            <p className="text-[#282830] text-center text-xs font-medium leading-snug line-clamp-2">{lastTranscription}</p>
+            <p className="text-[#5C59F3] text-center text-xs font-medium leading-snug line-clamp-2">{lastTranscription}</p>
+          )}
+          {isListening && interimText && (
+            <p className="text-[#2AA79C] text-center text-xs font-medium leading-snug line-clamp-2 italic">{interimText}...</p>
           )}
         </div>
 
@@ -384,34 +392,23 @@ function ActiveCallPhone({
               </button>
               {isExpanded && (
                 <div className="bg-white border border-[#F0F0FF] rounded-b-[12px] px-3 py-2.5 -mt-1 space-y-1.5">
-                  {cta.action === "provider" && (
-                    <>
-                      {data.result && <p className="text-[10px] text-[#3C3C43] leading-relaxed">{String(data.result).slice(0, 200)}</p>}
-                      {!data.result && data.specialty && <p className="text-[10px] text-[#3C3C43]">{String(data.specialty)} — {String(data.location)}</p>}
-                      <p className="text-[10px] text-[#5C59F3] font-semibold">{locale === "fr" ? "📍 Voir sur Alan Map" : "📍 View on Alan Map"}</p>
-                    </>
-                  )}
-                  {cta.action === "reimbursement" && (
-                    <>
-                      {data.average_price && <p className="text-[10px] text-[#3C3C43]">{locale === "fr" ? "Prix moyen" : "Average price"}: {String(data.average_price)}€</p>}
-                      {data.out_of_pocket !== undefined && <p className="text-[10px] font-semibold text-[#2AA79C]">{locale === "fr" ? "Reste à charge" : "Out of pocket"}: {String(data.out_of_pocket)}€</p>}
-                    </>
-                  )}
-                  {cta.action === "appointment" && (
-                    <>
-                      <p className="text-[10px] text-[#3C3C43]">{data.description ? String(data.description) : cta.label}</p>
-                      {data.date && <p className="text-[10px] text-[#5C59F3] font-semibold">📅 {String(data.date)}</p>}
-                    </>
-                  )}
-                  {cta.action === "teleconsultation" && (
-                    <p className="text-[10px] text-[#5C59F3] font-semibold">{locale === "fr" ? "🏥 Ouvrir dans l'app Alan" : "🏥 Open in Alan app"}</p>
-                  )}
-                  {cta.action === "doctor_connect" && (
-                    <>
-                      <p className="text-[10px] text-[#3C3C43]">{locale === "fr" ? "Un médecin recevra le contexte de cet appel." : "A doctor will receive this call's context."}</p>
-                      <p className="text-[10px] text-[#5C59F3] font-semibold">{locale === "fr" ? "👨‍⚕️ Chat disponible après l'appel" : "👨‍⚕️ Chat available after the call"}</p>
-                    </>
-                  )}
+                  {/* Show ALL data fields from the agent */}
+                  {Object.entries(data).map(([key, val]) => {
+                    if (!val || key === "patient_id") return null;
+                    const label = key.replace(/_/g, " ");
+                    const value = typeof val === "object" ? JSON.stringify(val) : String(val);
+                    // Long text (result from Linkup search)
+                    if (value.length > 80) {
+                      return <p key={key} className="text-[10px] text-[#3C3C43] leading-relaxed">{value.slice(0, 300)}{value.length > 300 ? "..." : ""}</p>;
+                    }
+                    // Key-value pairs
+                    return (
+                      <div key={key} className="flex items-center justify-between">
+                        <span className="text-[9px] text-[#8E8E93] capitalize">{label}</span>
+                        <span className="text-[10px] font-semibold text-[#282830]">{value}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
