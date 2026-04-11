@@ -708,31 +708,11 @@ async def entrypoint(ctx: JobContext):
 
     asyncio.create_task(auto_hangup())
 
-    # --- Opening greeting — data-rich, specific question ---
+    # --- Opening greeting — short, human, with doctor name + specific question ---
     first_name = patient["name"].split()[0]
     doctor_name = patient["recent_event"].get("doctor_name", "")
     q_key = "specific_questions_fr" if lang == "fr" else "specific_questions_en"
     first_question = patient["recent_event"].get(q_key, [""])[0]
-
-    # Build wearable insight for greeting
-    wearable_note = ""
-    if wearable_data:
-        steps = wearable_data["activity"]["current_avg_steps"]
-        baseline_steps = wearable_data["activity"]["baseline_avg_steps"]
-        sleep = wearable_data["sleep"]["current_avg_hours"]
-        baseline_sleep = wearable_data["sleep"]["baseline_avg_hours"]
-        if steps < baseline_steps * 0.5:
-            wearable_note = (
-                f"Je vois que vos pas sont à {steps} par jour contre {baseline_steps} avant. "
-                if lang == "fr" else
-                f"I see your steps are at {steps} per day versus {baseline_steps} before. "
-            )
-        if sleep < baseline_sleep - 1:
-            wearable_note += (
-                f"Et votre sommeil est à {sleep}h contre {baseline_sleep}h d'habitude. "
-                if lang == "fr" else
-                f"And your sleep is at {sleep}h versus {baseline_sleep}h usually. "
-            )
 
     if lang == "fr":
         event_desc = patient["recent_event"].get("description_fr", patient["recent_event"]["description"]).lower()
@@ -741,7 +721,6 @@ async def entrypoint(ctx: JobContext):
         greeting = (
             f"Bonjour {first_name}, c'est Maude d'Alan. "
             f"Je vous appelle suite à votre {event_desc}{doctor_part} du {event_date}. "
-            f"{wearable_note}"
             f"{first_question}"
         )
     else:
@@ -751,7 +730,6 @@ async def entrypoint(ctx: JobContext):
         greeting = (
             f"Hi {first_name}, Maude from Alan. "
             f"Calling about your {event_desc}{doctor_part} on {event_date}. "
-            f"{wearable_note}"
             f"{first_question}"
         )
 
