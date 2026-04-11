@@ -1,4 +1,4 @@
-# Product Requirements Document — Alan Care Call
+# Product Requirements Document — HeyMo
 
 ## 1. Problem
 
