@@ -5,7 +5,7 @@
     "age": 42,
     "plan": "Alan Blue",
     "communication_style": "needs_reassurance",
-    "thryve_user_id": "sandbox_user_03",
+    "thryve_user_id": "79187771a36482f013203b32712e873d",
     "recent_event": {
       "type": "hospitalization",
       "description": "Right knee arthroscopy",
@@ -42,7 +42,7 @@
     "age": 58,
     "plan": "Alan Green",
     "communication_style": "direct_factual",
-    "thryve_user_id": "sandbox_user_07",
+    "thryve_user_id": "1e2e53da12e0a9aebb3750af3c5857e1",
     "recent_event": {
       "type": "consultation",
       "description": "Type 2 diabetes follow-up with endocrinologist",
@@ -86,7 +86,7 @@
     "age": 31,
     "plan": "Alan Blue",
     "communication_style": "informed_proactive",
-    "thryve_user_id": "sandbox_user_11",
+    "thryve_user_id": "7f82fc3b0abba3a86b5e15c911fc5f6e",
     "recent_event": {
       "type": "pregnancy_followup",
       "description": "Second trimester pregnancy check-up (22 weeks)",

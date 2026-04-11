@@ -89,8 +89,7 @@ class AlanHealthAgent(Agent):
             procedure: The medical procedure to look up, e.g. 'specialist_consultation',
                       'physiotherapy', 'blood_test', 'ultrasound', 'mri'
         """
-        # TODO(Dev2): Implement real reimbursement lookup
-        # See tools.py → get_reimbursement_info() for the stub
+        # Dev2: Real Linkup API integration done in tools.py (with mock fallback)
         from tools import get_reimbursement_info
         result = await get_reimbursement_info(procedure, self._patient)
         self._reimbursement_discussed = result
@@ -100,8 +99,7 @@ class AlanHealthAgent(Agent):
     async def get_wearable_insights(self, context: RunContext) -> str:
         """Get the patient's wearable health data from the past 7 days.
         Includes heart rate, sleep, activity levels, and detected risk patterns."""
-        # TODO(Dev2): This returns hardcoded data for now.
-        # Replace with real Thryve API data once credentials arrive.
+        # Dev2: Real Thryve API integration done in tools.py (with mock fallback)
         return json.dumps(self._wearable_data, indent=2)
 
     @function_tool
@@ -149,10 +147,40 @@ class AlanHealthAgent(Agent):
         })
         return f"Follow-up scheduled for {scheduled_date}: {description}"
 
-    # TODO(Dev2): Add more function tools if needed:
-    # - send_sms_reminder(message) → simulated SMS to patient
-    # - get_patient_context() → return full patient JSON
-    # - end_call() → trigger summary generation before disconnect
+    @function_tool
+    async def send_sms_reminder(
+        self,
+        context: RunContext,
+        message: str,
+    ) -> str:
+        """Send an SMS reminder to the patient. Use this to send appointment
+        reminders, medication reminders, or follow-up instructions.
+
+        Args:
+            message: The text message to send to the patient
+        """
+        # Simulated SMS — in production, this would call an SMS gateway
+        self._actions.append({
+            "type": "sms_sent",
+            "description": f"SMS to {self._patient['name']}: {message}",
+        })
+        logger.info(f"SMS sent to {self._patient['name']}: {message}")
+        return f"SMS reminder sent to {self._patient['name']}: {message}"
+
+    @function_tool
+    async def get_patient_context(self, context: RunContext) -> str:
+        """Get the full patient profile including medical history, medications,
+        insurance plan, and upcoming appointments. Use this when you need
+        detailed patient information to answer a question."""
+        safe_patient = {
+            "name": self._patient["name"],
+            "age": self._patient["age"],
+            "plan": self._patient["plan"],
+            "recent_event": self._patient["recent_event"],
+            "medications": self._patient["medications"],
+            "contract": self._patient["contract"],
+        }
+        return json.dumps(safe_patient, indent=2)
 
 
 # ==========================================================================
