@@ -52,6 +52,8 @@ extraction and clinical value of the call.
 ```
 Judge opens URL
     ↓
+Language selector (🇫🇷 Français / 🇬🇧 English)
+    ↓
 Patient selector (demo convenience — pick a scenario to test)
     ↓
 "Start Call" → agent wakes up (10-20s cold start)
@@ -215,6 +217,6 @@ interface LiveAlert {
 - No real SMS sending (simulated)
 - No database (all data in JSON files + LiveKit text streams)
 - No user authentication
-- No multi-language support (English only for demo)
+- ~~No multi-language support~~ → Language selector (FR/EN) on the landing page, before patient selection
 - No call recording
 - No real appointment booking system
