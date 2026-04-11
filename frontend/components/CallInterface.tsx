@@ -335,16 +335,6 @@ function ActiveCallPhone({
           {t(stateKey)}
         </div>
 
-        {/* Live subtitle — shows what Maude says OR what user is saying */}
-        <div className="w-full min-h-[28px] flex items-center justify-center mb-2 px-2">
-          {isSpeaking && lastTranscription && (
-            <p className="text-[#5C59F3] text-center text-xs font-medium leading-snug line-clamp-2">{lastTranscription}</p>
-          )}
-          {isListening && interimText && (
-            <p className="text-[#2AA79C] text-center text-xs font-medium leading-snug line-clamp-2 italic">{interimText}...</p>
-          )}
-        </div>
-
         {/* Audio visualizer */}
         <div className="w-full h-12 mb-4">
           {audioTrack ? (
