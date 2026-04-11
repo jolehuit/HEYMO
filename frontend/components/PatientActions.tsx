@@ -42,7 +42,7 @@ export default function PatientActions({ summary, patient, liveCtas = [], onView
   const doctorConnectCtas = liveCtas.filter((c) => c.action === "doctor_connect");
   const activeMeds = summary.medications_status.filter((m) => m.status === "in_progress");
 
-  const hasProviders = providerCtas.length > 0 || (patient.nearbyDoctors && patient.nearbyDoctors.length > 0);
+  const hasProviders = providerCtas.length > 0;
   const hasDoctorConnect = doctorConnectCtas.length > 0;
 
   return (
@@ -157,50 +157,19 @@ export default function PatientActions({ summary, patient, liveCtas = [], onView
                   <div className="w-7 h-7 rounded-[8px] bg-[#EBFAF9] flex items-center justify-center">📍</div>
                   <p className="text-[13px] font-bold text-[#282830]">{isFr ? "Professionnels recommandés" : "Recommended professionals"}</p>
                 </div>
-                {patient.location && <span className="text-[10px] text-[#5C59F3] font-semibold">{patient.location}</span>}
               </div>
 
-              {/* Real provider results from Linkup during the call */}
               {providerCtas.map((cta, i) => {
                 const d = cta.data || {};
-                const result = d.result ? String(d.result) : "";
-                const specialty = d.specialty ? String(d.specialty) : "";
-                const location = d.location ? String(d.location) : "";
-                const id = `provider-${i}`;
-                const isOpen = expandedItem === id;
+                const desc = d.description ? String(d.description) : "";
                 return (
-                  <button key={`linkup-${i}`} onClick={() => toggle(id)} className="w-full text-left bg-[#F0F0FF] rounded-[12px] p-2.5 mb-2 active:scale-[0.98] transition-transform">
-                    <div className="flex items-center justify-between">
-                      <p className="text-[11px] font-bold text-[#5C59F3]">{cta.label}</p>
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#5C59F3" strokeWidth="2.5" strokeLinecap="round" className={`transition-transform ${isOpen ? "rotate-90" : ""}`}><path d="M9 18l6-6-6-6"/></svg>
-                    </div>
-                    {!isOpen && !result && specialty && <p className="text-[10px] text-[#8E8E93] mt-0.5">{specialty} — {location}</p>}
-                    {isOpen && result && <p className="text-[10px] text-[#3C3C43] leading-relaxed mt-1.5">{result}</p>}
-                    {isOpen && !result && specialty && <p className="text-[10px] text-[#8E8E93] mt-1.5">{specialty} — {location}</p>}
-                  </button>
+                  <div key={`provider-${i}`} className="bg-[#F0F0FF] rounded-[12px] p-2.5 mb-2">
+                    <p className="text-[11px] font-bold text-[#5C59F3]">{cta.label}</p>
+                    {desc && desc !== "..." && <p className="text-[10px] text-[#3C3C43] leading-relaxed mt-1">{desc}</p>}
+                  </div>
                 );
               })}
 
-              {/* Static nearby doctors from patient data */}
-              {patient.nearbyDoctors && patient.nearbyDoctors.length > 0 && (
-                <div className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-1 mt-1">
-                  {patient.nearbyDoctors.map((doc, i) => (
-                    <div key={i} className="bg-white rounded-[12px] border border-[#F0F0F2] p-2.5 min-w-[140px] shrink-0">
-                      <p className="text-[11px] font-bold text-[#282830]">{doc.name}</p>
-                      <p className="text-[10px] text-[#8E8E93]">{doc.specialty}</p>
-                      <div className="flex items-center gap-2 mt-1 text-[9px] text-[#8E8E93]">
-                        <span>📍 {doc.distance}</span>
-                        <span>{doc.sector}</span>
-                      </div>
-                      {doc.available && (
-                        <button className="w-full mt-2 py-1.5 bg-[#F0F0FF] rounded-[8px] text-[10px] font-semibold text-[#5C59F3] active:scale-95 transition-transform">
-                          {isFr ? "Prendre RDV" : "Book"}
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           )}
 
@@ -217,14 +186,16 @@ export default function PatientActions({ summary, patient, liveCtas = [], onView
                 const secu = d.secu_reimbursement ? Number(d.secu_reimbursement) : null;
                 const alan = d.alan_reimbursement ? Number(d.alan_reimbursement) : null;
                 const oop = d.out_of_pocket !== undefined ? Number(d.out_of_pocket) : null;
-                const procedure = d.procedure ? String(d.procedure) : cta.label;
+                const price = d.average_price ? Number(d.average_price) : null;
+                const desc = d.description ? String(d.description) : null;
                 return (
                   <div key={i} className="space-y-1 mb-2">
-                    <p className="text-[11px] font-semibold text-[#282830]">{procedure}</p>
+                    {price !== null && <div className="flex justify-between"><span className="text-[10px] text-[#8E8E93]">{isFr ? "Prix moyen" : "Avg. price"}</span><span className="text-[10px] font-semibold">{price}€</span></div>}
                     {secu !== null && <div className="flex justify-between"><span className="text-[10px] text-[#8E8E93]">{isFr ? "Sécu" : "Social security"}</span><span className="text-[10px] font-semibold">{secu}€</span></div>}
                     {alan !== null && <div className="flex justify-between"><span className="text-[10px] text-[#8E8E93]">Alan</span><span className="text-[10px] font-semibold text-[#5C59F3]">{alan}€</span></div>}
-                    {oop !== null && <div className="flex justify-between border-t border-[#F5F5F7] pt-1"><span className="text-[10px] font-semibold">{isFr ? "Reste à charge" : "Out of pocket"}</span><span className="text-[11px] font-bold">{oop}€</span></div>}
+                    {oop !== null && <div className="flex justify-between border-t border-[#F5F5F7] pt-1"><span className="text-[10px] font-semibold">{isFr ? "Reste à charge" : "Out of pocket"}</span><span className="text-[11px] font-bold text-[#2AA79C]">{oop}€</span></div>}
                     {d.direct_billing ? <p className="text-[10px] text-[#2AA79C] mt-1">✅ {isFr ? "Tiers payant" : "Direct billing"}</p> : null}
+                    {!price && !secu && !alan && oop === null && desc && <p className="text-[10px] text-[#3C3C43]">{desc}</p>}
                   </div>
                 );
               })}

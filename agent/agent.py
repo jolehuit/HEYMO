@@ -134,7 +134,11 @@ class AlanHealthAgent(Agent):
         self._reimbursement_discussed = result
         oop = result.get("out_of_pocket", "?")
         desc = f"Reste à charge : {oop}€" if self._lang == "fr" else f"Out of pocket: {oop}€"
-        await self._send_cta("reimbursement", label, {"description": desc}, cta_id=cta_id)
+        await self._send_cta("reimbursement", label, {
+            **result,
+            "description": desc,
+            "procedure": procedure,
+        }, cta_id=cta_id)
         return json.dumps(result, indent=2)
 
     @function_tool

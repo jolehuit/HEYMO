@@ -94,6 +94,16 @@ export default function CallInterface({ patient, onBack, onSummaryGenerated }: C
   }, []);
 
   const handleCtaReceived = useCallback((cta: LiveCTA) => {
+    // Deduplicate by id: replace existing CTA with same id
+    if (cta.id) {
+      const idx = collectedCtas.current.findIndex((c) => c.id === cta.id);
+      if (idx >= 0) {
+        const updated = [...collectedCtas.current];
+        updated[idx] = cta;
+        collectedCtas.current = updated;
+        return;
+      }
+    }
     collectedCtas.current = [...collectedCtas.current, cta];
   }, []);
 
