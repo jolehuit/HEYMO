@@ -311,7 +311,7 @@ function ActiveCallPhone({
   const fmtDuration = `${Math.floor(callDuration / 60)}:${(callDuration % 60).toString().padStart(2, "0")}`;
 
   return (
-    <div className="flex flex-col h-full bg-[#FFFCF5]">
+    <div className="flex flex-col h-full bg-[#FFFCF5] relative overflow-hidden">
       {/* Call header — iOS style */}
       <div className="bg-white px-4 pt-10 pb-3 border-b border-[#ECF1FC]">
         <div className="flex items-center justify-between">
@@ -391,26 +391,32 @@ function ActiveCallPhone({
           </div>
         ))}
 
-        {/* Map modal overlay */}
+        {/* Map modal — inside phone frame */}
         {mapModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 animate-[fadeIn_0.2s_ease-out]"
+          <div className="absolute inset-0 z-50 flex items-end justify-center bg-black/30 animate-[fadeIn_0.15s_ease-out]"
             onClick={() => setMapModal(null)}>
-            <div className="bg-white rounded-[20px] w-[85%] max-w-[320px] overflow-hidden shadow-2xl animate-[fadeInUp_0.3s_ease-out]"
+            <div className="bg-white rounded-t-[20px] w-full overflow-hidden shadow-2xl animate-[slideUp_0.25s_ease-out]"
               onClick={(e) => e.stopPropagation()}>
-              {/* Map placeholder */}
-              <div className="w-full h-[160px] bg-gradient-to-b from-[#D4E8D0] to-[#E8F5E9] relative">
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-[#5C59F3] border-3 border-white shadow-lg flex items-center justify-center">
-                  <span className="text-white text-sm">📍</span>
-                </div>
-                <span className="absolute bottom-2 left-3 text-[9px] text-[#8E8E93] bg-white/80 px-2 py-0.5 rounded-full">Alan Map</span>
-                <button onClick={() => setMapModal(null)} className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 flex items-center justify-center shadow">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#282830" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              {/* Countdown bar */}
+              <div className="h-[3px] bg-[#F0F0F2]">
+                <div className="h-full bg-[#5C59F3] animate-[shrink_5s_linear_forwards]" />
+              </div>
+              {/* Real map */}
+              <div className="w-full h-[180px] relative">
+                <iframe
+                  src={`https://www.google.com/maps?q=${encodeURIComponent(mapModal.address)}&output=embed&z=16`}
+                  className="w-full h-full border-0"
+                  loading="eager"
+                  referrerPolicy="no-referrer"
+                />
+                <button onClick={() => setMapModal(null)} className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 flex items-center justify-center shadow-md">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#282830" strokeWidth="3" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
                 </button>
               </div>
               <div className="px-4 py-3">
                 <p className="text-[13px] font-bold text-[#282830]">{mapModal.label}</p>
-                <p className="text-[11px] text-[#8E8E93] mt-1">{mapModal.address}</p>
-                {mapModal.phone && <p className="text-[11px] text-[#5C59F3] font-medium mt-0.5">{mapModal.phone}</p>}
+                <p className="text-[11px] text-[#8E8E93] mt-0.5">{mapModal.address}</p>
+                {mapModal.phone && <p className="text-[11px] text-[#5C59F3] font-semibold mt-0.5">{mapModal.phone}</p>}
               </div>
             </div>
           </div>
