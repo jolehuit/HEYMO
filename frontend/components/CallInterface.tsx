@@ -11,10 +11,10 @@ import Image from "next/image";
 import {
   LiveKitRoom,
   useVoiceAssistant,
+  useRoomContext,
   BarVisualizer,
   VideoTrack,
   RoomAudioRenderer,
-  DisconnectButton,
   useTextStream,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
@@ -31,7 +31,7 @@ interface CallInterfaceProps {
   onBack: () => void;
 }
 
-const SUMMARY_TIMEOUT = 30_000; // 30s max wait for summary
+const SUMMARY_TIMEOUT = 30_000;
 
 export default function CallInterface({ patient, onBack }: CallInterfaceProps) {
   const { t, locale } = useTranslation();
@@ -39,10 +39,10 @@ export default function CallInterface({ patient, onBack }: CallInterfaceProps) {
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(true);
-  const [callEnded, setCallEnded] = useState(false);
   const [summary, setSummary] = useState<CallSummary | null>(null);
-  const [summaryTimeout, setSummaryTimeout] = useState(false);
   const [postCallStep, setPostCallStep] = useState<"notification" | "actions" | "dashboard">("notification");
+  const [callPhase, setCallPhase] = useState<"active" | "ending" | "done">("active");
+  const collectedTranscriptions = useRef<string[]>([]);
 
   useEffect(() => {
     async function fetchToken() {
@@ -65,16 +65,43 @@ export default function CallInterface({ patient, onBack }: CallInterfaceProps) {
     fetchToken();
   }, [patient.id, locale]);
 
-  // Timeout for summary generation
-  useEffect(() => {
-    if (callEnded && !summary) {
-      const timer = setTimeout(() => setSummaryTimeout(true), SUMMARY_TIMEOUT);
-      return () => clearTimeout(timer);
-    }
-  }, [callEnded, summary]);
+  const handleEndCall = useCallback(async () => {
+    console.log("[HEYMO] End call — generating summary from transcriptions");
+    setCallPhase("ending");
 
-  const handleDisconnected = useCallback(() => setCallEnded(true), []);
-  const handleSummaryReceived = useCallback((data: CallSummary) => setSummary(data), []);
+    // Generate summary client-side from collected transcriptions
+    try {
+      const res = await fetch("/api/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          transcriptions: collectedTranscriptions.current,
+          patientId: patient.id,
+          patientName: patient.name,
+          eventDescription: patient.eventDescription,
+          medications: patient.medications || [],
+          language: locale,
+        }),
+      });
+
+      if (res.ok) {
+        const { summary: data } = await res.json();
+        console.log("[HEYMO] Summary generated!", data.alert_level);
+        setSummary(data);
+        setCallPhase("done");
+      } else {
+        console.error("[HEYMO] Summary API error:", await res.text());
+        setCallPhase("done");
+      }
+    } catch (e) {
+      console.error("[HEYMO] Summary generation failed:", e);
+      setCallPhase("done");
+    }
+  }, [patient, locale]);
+
+  const handleTranscriptionUpdate = useCallback((texts: string[]) => {
+    collectedTranscriptions.current = texts;
+  }, []);
 
   // --- Error state ---
   if (error) {
@@ -113,34 +140,8 @@ export default function CallInterface({ patient, onBack }: CallInterfaceProps) {
     );
   }
 
-  // --- Generating summary (with timeout) ---
-  if (callEnded && !summary) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#FFFCF5]">
-        <div className="text-center">
-          <div className="relative w-28 h-28 mx-auto mb-6">
-            <div className="absolute inset-0 rounded-full bg-[#5C59F3]/10 animate-pulse" />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Image src="/maude.png" alt="Maude" width={80} height={80} className="drop-shadow-lg" />
-            </div>
-          </div>
-          <h2 className="text-xl font-bold text-[#282830] mb-2">{t("call.generating_summary")}</h2>
-          <p className="text-[#9DA3BA] mb-6">{t("call.generating_hint")}</p>
-          {summaryTimeout && (
-            <p className="text-[#FF6D39] text-sm mb-4">
-              {locale === "fr" ? "Le résumé prend plus de temps que prévu..." : "Summary is taking longer than expected..."}
-            </p>
-          )}
-          <button onClick={onBack} className="alan-btn-primary px-6 py-3">
-            {t("call.skip")}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // --- Post-call flow: notification → actions → dashboard ---
-  if (callEnded && summary) {
+  // --- Post-call flow (outside LiveKitRoom) ---
+  if (summary) {
     if (postCallStep === "notification") {
       return (
         <PhoneNotification
@@ -161,23 +162,110 @@ export default function CallInterface({ patient, onBack }: CallInterfaceProps) {
     return <Dashboard summary={summary} onBack={onBack} />;
   }
 
-  // --- Active call ---
+  // --- Active call / waiting for summary ---
+  // Room stays connected so we can receive the summary text stream
   return (
     <LiveKitRoom
       serverUrl={url}
       token={token}
       connect={true}
       audio={true}
-      onDisconnected={handleDisconnected}
       className="min-h-screen bg-[#FFFCF5]"
     >
-      <ActiveCall patient={patient} callEnded={callEnded} onSummaryReceived={handleSummaryReceived} />
+      {callPhase === "ending" ? (
+        <EndingCall onSkip={onBack} summaryTimeout={summaryTimeout} />
+      ) : (
+        <ActiveCall patient={patient} onEndCall={handleEndCall} />
+      )}
+      <SummaryListener onSummaryReceived={handleSummaryReceived} />
       <RoomAudioRenderer />
     </LiveKitRoom>
   );
 }
 
-/* ─── Patient info sheet (sidebar during call) ─── */
+/* ─── Summary listener — always mounted inside LiveKitRoom ─── */
+function SummaryListener({ onSummaryReceived }: { onSummaryReceived: (data: CallSummary) => void }) {
+  const { textStreams: summaryStreams } = useTextStream("call-summary");
+
+  useEffect(() => {
+    if (summaryStreams.length > 0) {
+      console.log("[HEYMO] SummaryListener got data:", summaryStreams.length);
+      try {
+        const parsed = JSON.parse(summaryStreams[0].text) as CallSummary;
+        onSummaryReceived(parsed);
+      } catch (e) {
+        console.error("[HEYMO] SummaryListener parse error:", e);
+      }
+    }
+  }, [summaryStreams, onSummaryReceived]);
+
+  return null;
+}
+
+/* ─── Ending call — muted mic, waiting for summary, still in room ─── */
+function EndingCall({ onSkip, summaryTimeout }: { onSkip: () => void; summaryTimeout: boolean }) {
+  const { t, locale } = useTranslation();
+  const room = useRoomContext();
+
+  // Mute mic and disconnect after a delay to trigger agent summary
+  useEffect(() => {
+    async function endCall() {
+      // Step 1: mute mic immediately
+      await room.localParticipant.setMicrophoneEnabled(false);
+      console.log("[HEYMO] Mic muted");
+
+      // Step 2: disconnect after 1s — triggers agent's participant_disconnected handler
+      // But we stay in the LiveKitRoom component so useTextStream still works
+      // Actually we need to NOT disconnect if we want to receive the summary...
+      // So instead, send a signal to the agent
+      try {
+        const encoder = new TextEncoder();
+        await room.localParticipant.publishData(
+          encoder.encode(JSON.stringify({ type: "end-call" })),
+          { reliable: true, topic: "end-call" }
+        );
+        console.log("[HEYMO] end-call signal sent to agent");
+      } catch (e) {
+        console.log("[HEYMO] Could not send end-call signal:", e);
+      }
+
+      // Step 3: disconnect after 2s — this triggers agent summary generation
+      // The room component stays mounted so the summary can still arrive
+      // via the SummaryListener before the component unmounts
+      setTimeout(async () => {
+        console.log("[HEYMO] Disconnecting from room...");
+        await room.disconnect();
+        console.log("[HEYMO] Disconnected");
+      }, 2000);
+    }
+    endCall();
+  }, [room]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#FFFCF5]">
+      <div className="text-center">
+        <div className="relative w-28 h-28 mx-auto mb-6">
+          <div className="absolute inset-0 rounded-full bg-[#5C59F3]/10 animate-pulse" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Image src="/maude.png" alt="Maude" width={80} height={80} className="drop-shadow-lg" />
+          </div>
+        </div>
+        <h2 className="text-xl font-bold text-[#282830] mb-2">{t("call.generating_summary")}</h2>
+        <p className="text-[#9DA3BA] mb-6">{t("call.generating_hint")}</p>
+        {summaryTimeout && (
+          <p className="text-[#FF6D39] text-sm mb-4">
+            {locale === "fr" ? "Le résumé prend plus de temps que prévu..." : "Summary is taking longer than expected..."}
+          </p>
+        )}
+        <button onClick={onSkip} className="alan-btn-primary px-6 py-3">
+          {t("call.skip")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Patient info sheet (sidebar) ─── */
 function PatientInfoSheet({ patient }: { patient: PatientProfile }) {
   const { t } = useTranslation();
   return (
@@ -189,13 +277,11 @@ function PatientInfoSheet({ patient }: { patient: PatientProfile }) {
           <p className="text-xs text-[#9DA3BA]">{patient.age} {t("landing.years_old")} · {patient.plan}</p>
         </div>
       </div>
-
       <div>
         <p className="text-xs font-semibold text-[#9DA3BA] uppercase tracking-wider mb-1">{t(`event.${patient.eventType}` as never) || patient.eventType}</p>
         <p className="text-[#282830] font-medium">{t(`desc.${patient.eventDescription}` as never) || patient.eventDescription}</p>
         <p className="text-xs text-[#9DA3BA]">{patient.eventDate}{patient.provider ? ` · ${patient.provider}` : ""}</p>
       </div>
-
       {patient.followupRequired && (
         <div className="flex items-start gap-2">
           <CalendarIcon size={14} color="#5C59F3" className="mt-0.5 shrink-0" />
@@ -207,7 +293,6 @@ function PatientInfoSheet({ patient }: { patient: PatientProfile }) {
           </div>
         </div>
       )}
-
       {patient.medications && patient.medications.length > 0 && (
         <div>
           <div className="flex items-center gap-1 mb-1">
@@ -222,7 +307,6 @@ function PatientInfoSheet({ patient }: { patient: PatientProfile }) {
           ))}
         </div>
       )}
-
       {patient.communicationStyle && (
         <div className="text-xs text-[#9DA3BA] italic pt-1 border-t border-[#ECF1FC]">
           💬 {patient.communicationStyle}
@@ -235,12 +319,10 @@ function PatientInfoSheet({ patient }: { patient: PatientProfile }) {
 /* ─── Active call view ─── */
 function ActiveCall({
   patient,
-  callEnded,
-  onSummaryReceived,
+  onEndCall,
 }: {
   patient: PatientProfile;
-  callEnded: boolean;
-  onSummaryReceived: (data: CallSummary) => void;
+  onEndCall: () => void;
 }) {
   const { t } = useTranslation();
   const { state, audioTrack, videoTrack, agentTranscriptions } = useVoiceAssistant();
@@ -248,11 +330,7 @@ function ActiveCall({
   const [callDuration, setCallDuration] = useState(0);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 
-  // Only listen for alerts and summary from backend — NOT conversation text
   const { textStreams: liveUpdates } = useTextStream("live-updates");
-  const { textStreams: summaryStreams } = useTextStream("call-summary");
-
-  // Note: mic stays always on — LiveKit's turn detector handles interruptions
 
   useEffect(() => {
     const interval = setInterval(() => setCallDuration((d) => d + 1), 1000);
@@ -272,20 +350,11 @@ function ActiveCall({
     }
   }, [liveUpdates]);
 
-  useEffect(() => {
-    if (summaryStreams.length > 0) {
-      try {
-        onSummaryReceived(JSON.parse(summaryStreams[0].text) as CallSummary);
-      } catch { /* ignore */ }
-    }
-  }, [summaryStreams, onSummaryReceived]);
-
   const isSpeaking = state === "speaking";
   const isListening = state === "listening";
   const isThinking = state === "thinking";
   const stateKey = `state.${state}` as const;
 
-  // Live subtitle — last thing the AI is saying right now
   const lastTranscription = agentTranscriptions.length > 0
     ? agentTranscriptions[agentTranscriptions.length - 1].text
     : null;
@@ -303,24 +372,26 @@ function ActiveCall({
           <PhoneIcon size={14} color="#2AA79C" />
           <span className="text-sm text-[#2AA79C] font-mono">{fmtDuration}</span>
         </div>
-        <DisconnectButton className="px-4 py-2 bg-[#FF6D39] hover:bg-[#CF3302] text-white rounded-xl text-sm font-semibold transition-colors flex items-center gap-2">
+        <button
+          onClick={onEndCall}
+          className="px-4 py-2 bg-[#FF6D39] hover:bg-[#CF3302] text-white rounded-xl text-sm font-semibold transition-colors flex items-center gap-2"
+        >
           <PhoneIcon size={14} color="white" />
           {t("call.end")}
-        </DisconnectButton>
+        </button>
       </div>
 
       {/* Main layout */}
       <div className="flex-1 flex">
-        {/* Left — Patient info sheet */}
+        {/* Left — Patient info */}
         <div className="w-72 shrink-0 p-4 border-r border-[#ECF1FC] overflow-y-auto hidden md:block">
           <p className="text-xs font-semibold text-[#9DA3BA] uppercase tracking-wider mb-3">📋 {t("patient.info")}</p>
           <PatientInfoSheet patient={patient} />
         </div>
 
-        {/* Center — Call area */}
+        {/* Center — Call */}
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-4">
-
-          {/* Avatar — video track if available, else image */}
+          {/* Avatar */}
           <div className="relative mb-4">
             {isSpeaking && (
               <>
@@ -328,12 +399,8 @@ function ActiveCall({
                 <div className="absolute -inset-6 rounded-full bg-[#5C59F3]/5 animate-ping" />
               </>
             )}
-            {isThinking && (
-              <div className="absolute -inset-4 rounded-full bg-[#FF9359]/10 animate-pulse" />
-            )}
-            {isListening && (
-              <div className="absolute -inset-4 rounded-full bg-[#2AA79C]/10 animate-pulse" />
-            )}
+            {isThinking && <div className="absolute -inset-4 rounded-full bg-[#FF9359]/10 animate-pulse" />}
+            {isListening && <div className="absolute -inset-4 rounded-full bg-[#2AA79C]/10 animate-pulse" />}
 
             {videoTrack ? (
               <div className={`relative w-[130px] h-[130px] rounded-full overflow-hidden drop-shadow-xl transition-all duration-300 ${
@@ -345,11 +412,7 @@ function ActiveCall({
                 <VideoTrack trackRef={videoTrack} className="w-full h-full object-cover" />
               </div>
             ) : (
-              <Image
-                src="/maude.png"
-                alt="Maude"
-                width={130}
-                height={130}
+              <Image src="/maude.png" alt="Maude" width={130} height={130}
                 className={`relative rounded-full drop-shadow-xl transition-all duration-300 ${
                   isSpeaking ? "ring-4 ring-[#5C59F3] ring-offset-2 scale-105" :
                   isThinking ? "ring-4 ring-[#FF9359] ring-offset-2" :
@@ -360,23 +423,18 @@ function ActiveCall({
             )}
           </div>
 
-          {/* State label */}
+          {/* State */}
           <div className={`flex items-center gap-2 mb-2 text-sm font-semibold ${
-            isSpeaking ? "text-[#5C59F3]" :
-            isThinking ? "text-[#FF9359]" :
-            isListening ? "text-[#2AA79C]" :
-            "text-[#9DA3BA]"
+            isSpeaking ? "text-[#5C59F3]" : isThinking ? "text-[#FF9359]" : isListening ? "text-[#2AA79C]" : "text-[#9DA3BA]"
           }`}>
             {isListening && <MicIcon size={16} color="#2AA79C" />}
             {t(stateKey)}
           </div>
 
-          {/* Live subtitle — what Maude is saying RIGHT NOW */}
+          {/* Live subtitle */}
           <div className="w-full max-w-md h-12 flex items-center justify-center mb-4">
             {isSpeaking && lastTranscription && (
-              <p className="text-[#282830] text-center text-base font-medium animate-pulse">
-                {lastTranscription}
-              </p>
+              <p className="text-[#282830] text-center text-base font-medium animate-pulse">{lastTranscription}</p>
             )}
           </div>
 
@@ -387,11 +445,8 @@ function ActiveCall({
             ) : (
               <div className="w-full h-full flex items-center justify-center gap-1">
                 {[...Array(7)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="w-1 bg-[#5C59F3]/15 rounded-full animate-pulse"
-                    style={{ height: `${8 + Math.random() * 24}px`, animationDelay: `${i * 120}ms` }}
-                  />
+                  <div key={i} className="w-1 bg-[#5C59F3]/15 rounded-full animate-pulse"
+                    style={{ height: `${8 + Math.random() * 24}px`, animationDelay: `${i * 120}ms` }} />
                 ))}
               </div>
             )}
@@ -412,19 +467,17 @@ function ActiveCall({
             </div>
           )}
 
-          {/* Transcription history — only what Maude said (live from LiveKit, not backend) */}
+          {/* Transcription */}
           <div className="w-full max-w-md alan-card p-4 max-h-48 overflow-y-auto">
             <h3 className="text-xs font-semibold text-[#9DA3BA] uppercase tracking-wider mb-2">{t("call.conversation")}</h3>
             <div className="space-y-2.5">
               {agentTranscriptions.map((seg, i) => (
                 <div key={i} className="flex gap-2.5 items-start">
                   <Image src="/maude.png" alt="Maude" width={22} height={22} className="rounded-full shrink-0 mt-0.5" />
-                  <p className="text-[#282830] text-sm bg-[#F0F3FF] rounded-xl rounded-tl-none px-3 py-1.5">
-                    {seg.text}
-                  </p>
+                  <p className="text-[#282830] text-sm bg-[#F0F3FF] rounded-xl rounded-tl-none px-3 py-1.5">{seg.text}</p>
                 </div>
               ))}
-              {agentTranscriptions.length === 0 && !callEnded && (
+              {agentTranscriptions.length === 0 && (
                 <p className="text-[#9DA3BA] text-sm italic text-center py-3">{t("call.conversation_placeholder")}</p>
               )}
               <div ref={transcriptEndRef} />

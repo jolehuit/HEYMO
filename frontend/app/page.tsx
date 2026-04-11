@@ -1,6 +1,7 @@
 /**
- * Main page — Patient selector + Call interface.
- * Single-page app: select patient → start call → see dashboard.
+ * Main page — Alan app flow
+ * Sophie Martin is the default patient (no selection screen)
+ * Flow: Alan Home → Incoming call → Call → Notification → Actions → Dashboard
  *
  * Owner: Dev 3
  */
@@ -8,25 +9,28 @@
 "use client";
 
 import { useState } from "react";
-import PatientSelector from "@/components/PatientSelector";
+import AlanHomeScreen from "@/components/AlanHomeScreen";
 import CallInterface from "@/components/CallInterface";
-import { PatientProfile } from "@/lib/patients";
+import { PATIENTS } from "@/lib/patients";
 import { I18nProvider } from "@/lib/i18n";
 
+const SOPHIE = PATIENTS[0]; // Sophie Martin — default patient
+
 export default function Home() {
-  const [selectedPatient, setSelectedPatient] = useState<PatientProfile | null>(
-    null
-  );
+  const [step, setStep] = useState<"home" | "call">("home");
 
   return (
     <I18nProvider>
-      {selectedPatient ? (
-        <CallInterface
-          patient={selectedPatient}
-          onBack={() => setSelectedPatient(null)}
+      {step === "home" ? (
+        <AlanHomeScreen
+          patient={SOPHIE}
+          onIncomingCall={() => setStep("call")}
         />
       ) : (
-        <PatientSelector onSelect={setSelectedPatient} />
+        <CallInterface
+          patient={SOPHIE}
+          onBack={() => setStep("home")}
+        />
       )}
     </I18nProvider>
   );
