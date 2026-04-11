@@ -647,16 +647,15 @@ async def entrypoint(ctx: JobContext):
     agent._room = ctx.room
 
     # --- Configure voice pipeline ---
-    # ElevenLabs TTS — Sarah (Mature, Reassuring, Confident)
-    # eleven_multilingual_v2 for French (natural accent), eleven_turbo_v2_5 for English (low latency)
-    tts_voice_id = "EXAVITQu4vr4xnSDxMaL"
-    tts_model = "eleven_multilingual_v2" if lang == "fr" else "eleven_turbo_v2_5"
+    # ElevenLabs TTS — Jessica (Playful, Bright, Warm) on Flash v2.5 (~75ms TTFB)
+    # Flash v2.5 for all languages: lowest latency, 32 languages incl. French
+    tts_voice_id = "cgSgspJ2msm6clMCkdW9"
     session = AgentSession(
         stt=mistralai.STT(model="voxtral-mini-transcribe-realtime-2602"),
         llm=mistralai.LLM(model="mistral-small-latest"),
         tts=elevenlabs.TTS(
             voice_id=tts_voice_id,
-            model=tts_model,
+            model="eleven_flash_v2_5",
             language=lang,
         ),
         vad=ctx.proc.userdata["vad"],
