@@ -1,18 +1,7 @@
 /**
- * Call interface — LiveKit voice agent UI (BOILERPLATE)
+ * Call interface — LiveKit voice agent UI
  *
  * Owner: Dev 3
- *
- * This component:
- * 1. Fetches a token from /api/token (with patient_id)
- * 2. Connects to a LiveKit room
- * 3. Shows audio visualizer + agent state + live transcription
- * 4. Listens for text streams from the agent (alerts + summary)
- * 5. Shows Dashboard when call ends
- *
- * TODO(Dev3): Polish the call UI — better visualizer, better state display.
- * TODO(Dev3): Handle edge cases — connection errors, agent timeout, etc.
- * TODO(Dev3): Add cold start UX — animation while agent wakes up (~10-20s).
  */
 
 "use client";
@@ -30,6 +19,8 @@ import "@livekit/components-styles";
 import { PatientProfile } from "@/lib/patients";
 import { CallSummary, LiveAlert } from "@/lib/types";
 import Dashboard from "./Dashboard";
+import { AlanMarmot } from "./AlanLogo";
+import { MicIcon, AlertTriangleIcon } from "./AlanIcons";
 
 interface CallInterfaceProps {
   patient: PatientProfile;
@@ -44,7 +35,6 @@ export default function CallInterface({ patient, onBack }: CallInterfaceProps) {
   const [callEnded, setCallEnded] = useState(false);
   const [summary, setSummary] = useState<CallSummary | null>(null);
 
-  // Fetch token on mount
   useEffect(() => {
     async function fetchToken() {
       try {
@@ -72,10 +62,14 @@ export default function CallInterface({ patient, onBack }: CallInterfaceProps) {
   // --- Error state ---
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-400 text-xl mb-4">{error}</p>
-          <button onClick={onBack} className="px-6 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg">
+      <div className="min-h-screen flex items-center justify-center bg-[#FFFCF5]">
+        <div className="text-center alan-card p-10 max-w-md">
+          <div className="w-14 h-14 rounded-full bg-[#FFF3E5] flex items-center justify-center mx-auto mb-4">
+            <AlertTriangleIcon size={28} color="#FF6D39" />
+          </div>
+          <p className="text-[#282830] text-lg font-semibold mb-2">Connection failed</p>
+          <p className="text-[#9DA3BA] text-sm mb-6">{error}</p>
+          <button onClick={onBack} className="alan-btn-primary px-6 py-3 w-full">
             Back to patient selection
           </button>
         </div>
@@ -83,15 +77,25 @@ export default function CallInterface({ patient, onBack }: CallInterfaceProps) {
     );
   }
 
-  // --- Loading state ---
-  // TODO(Dev3): Make this a nice animation for the cold start wait
+  // --- Loading state (cold start) ---
   if (isConnecting || !token || !url) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-[#FFFCF5]">
         <div className="text-center">
-          <div className="w-16 h-16 rounded-full bg-purple-600/50 animate-ping mx-auto mb-6" />
-          <h2 className="text-2xl font-bold mb-2">Connecting to your health agent...</h2>
-          <p className="text-slate-400">This may take 10-15 seconds on first connection</p>
+          {/* Marmot face pulsing */}
+          <div className="relative w-28 h-28 mx-auto mb-8">
+            <div className="absolute inset-0 rounded-full bg-[#5C59F3]/10 animate-ping" />
+            <div className="absolute inset-2 rounded-full bg-[#5C59F3]/10 animate-pulse" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <AlanMarmot size="lg" color="#5C59F3" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold text-[#282830] mb-2">Connecting to your health agent...</h2>
+          <p className="text-[#9DA3BA]">This may take 10-15 seconds on first connection</p>
+          <div className="flex items-center justify-center gap-2 mt-6 bg-[#F0F3FF] px-4 py-2 rounded-full">
+            <span className="text-2xl">{patient.emoji}</span>
+            <span className="text-[#464754] font-medium">{patient.name}</span>
+          </div>
         </div>
       </div>
     );
@@ -110,7 +114,7 @@ export default function CallInterface({ patient, onBack }: CallInterfaceProps) {
       connect={true}
       audio={true}
       onDisconnected={handleDisconnected}
-      className="min-h-screen"
+      className="min-h-screen bg-[#FFFCF5]"
     >
       <ActiveCall patient={patient} callEnded={callEnded} onSummaryReceived={handleSummaryReceived} />
       <RoomAudioRenderer />
@@ -118,9 +122,6 @@ export default function CallInterface({ patient, onBack }: CallInterfaceProps) {
   );
 }
 
-/**
- * Active call view — rendered inside the LiveKitRoom context.
- */
 function ActiveCall({
   patient,
   callEnded,
@@ -133,11 +134,9 @@ function ActiveCall({
   const { state, audioTrack, agentTranscriptions } = useVoiceAssistant();
   const [alerts, setAlerts] = useState<LiveAlert[]>([]);
 
-  // --- Text streams from the agent ---
   const { textStreams: liveUpdates } = useTextStream("live-updates");
   const { textStreams: summaryStreams } = useTextStream("call-summary");
 
-  // Process live alerts
   useEffect(() => {
     if (liveUpdates.length > 0) {
       try {
@@ -147,7 +146,6 @@ function ActiveCall({
     }
   }, [liveUpdates]);
 
-  // Process summary
   useEffect(() => {
     if (summaryStreams.length > 0) {
       try {
@@ -156,65 +154,87 @@ function ActiveCall({
     }
   }, [summaryStreams, onSummaryReceived]);
 
-  // --- Agent state labels ---
-  // TODO(Dev3): Make the state display more visual — icons, colors, transitions
-  const stateLabels: Record<string, string> = {
-    disconnected: "Disconnected", connecting: "Connecting...",
-    initializing: "Agent waking up...", idle: "Ready",
-    listening: "Listening", thinking: "Thinking...", speaking: "Speaking",
+  const stateConfig: Record<string, { label: string; color: string; dotColor: string }> = {
+    disconnected: { label: "Disconnected", color: "text-[#9DA3BA]", dotColor: "bg-[#9DA3BA]" },
+    connecting: { label: "Connecting...", color: "text-[#FF9359]", dotColor: "bg-[#FF9359]" },
+    initializing: { label: "Agent waking up...", color: "text-[#FF9359]", dotColor: "bg-[#FF9359]" },
+    idle: { label: "Ready", color: "text-[#5C59F3]", dotColor: "bg-[#5C59F3]" },
+    listening: { label: "Listening", color: "text-[#5C59F3]", dotColor: "bg-[#5C59F3]" },
+    thinking: { label: "Thinking...", color: "text-[#FF9359]", dotColor: "bg-[#FF9359]" },
+    speaking: { label: "Speaking", color: "text-[#5C59F3]", dotColor: "bg-[#5C59F3]" },
   };
+
+  const currentState = stateConfig[state] || { label: state, color: "text-[#9DA3BA]", dotColor: "bg-[#9DA3BA]" };
 
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b border-slate-700">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">{patient.emoji}</span>
-          <div>
-            <h1 className="text-xl font-bold">{patient.name}</h1>
-            <p className="text-sm text-slate-400">{patient.eventDescription}</p>
+      <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-[#ECF1FC]">
+        <div className="flex items-center gap-4">
+          <AlanMarmot size="sm" color="#5C59F3" />
+          <div className="h-6 w-px bg-[#ECF1FC]" />
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">{patient.emoji}</span>
+            <div>
+              <h1 className="text-lg font-bold text-[#282830]">{patient.name}</h1>
+              <p className="text-sm text-[#9DA3BA]">{patient.eventDescription}</p>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-slate-300">{stateLabels[state] || state}</span>
-          <DisconnectButton className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-sm font-semibold">
+          <span className={`text-sm font-medium flex items-center gap-2 ${currentState.color}`}>
+            <span className={`w-2 h-2 rounded-full animate-pulse ${currentState.dotColor}`} />
+            {currentState.label}
+          </span>
+          <DisconnectButton className="px-5 py-2.5 bg-[#FF6D39] hover:bg-[#CF3302] text-white rounded-xl text-sm font-semibold transition-colors">
             End Call
           </DisconnectButton>
         </div>
       </div>
 
-      {/* Audio visualizer */}
+      {/* Main content */}
       <div className="flex-1 flex flex-col items-center justify-center p-8">
+        {/* Audio visualizer */}
         <div className="w-full max-w-md h-48 mb-8">
           {audioTrack ? (
             <BarVisualizer state={state} trackRef={audioTrack} barCount={24} className="w-full h-full" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-slate-500">
-              Waiting for agent...
+            <div className="w-full h-full flex items-center justify-center">
+              <div className="relative">
+                <div className="absolute inset-0 rounded-full bg-[#5C59F3]/10 animate-pulse scale-150" />
+                <div className="relative bg-[#F0F3FF] rounded-full p-6">
+                  <MicIcon size={32} color="#5C59F3" />
+                </div>
+              </div>
             </div>
           )}
         </div>
 
-        {/* TODO(Dev3): Show alerts in a more prominent way */}
+        {/* Live alerts */}
         {alerts.map((alert, i) => (
-          <div key={i} className="px-4 py-3 rounded-lg bg-orange-900/30 border border-orange-700 text-orange-300 mb-2 w-full max-w-lg">
-            <span className="font-semibold text-xs uppercase">{alert.level} alert</span>
-            <p className="text-sm mt-1">{alert.reason}</p>
+          <div key={i} className={`${alert.level === "red" ? "alert-red" : "alert-orange"} rounded-xl px-5 py-3 mb-3 w-full max-w-lg flex items-start gap-3`}>
+            <AlertTriangleIcon size={18} color={alert.level === "red" ? "#CF3302" : "#FF6D39"} className="mt-0.5 shrink-0" />
+            <div>
+              <span className="font-semibold text-xs uppercase">{alert.level} alert</span>
+              <p className="text-sm mt-0.5">{alert.reason}</p>
+            </div>
           </div>
         ))}
 
         {/* Transcription */}
-        <div className="w-full max-w-lg">
-          <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Conversation</h3>
-          <div className="space-y-2 max-h-64 overflow-y-auto">
+        <div className="w-full max-w-lg mt-4">
+          <h3 className="text-xs font-semibold text-[#9DA3BA] uppercase tracking-wider mb-3">Conversation</h3>
+          <div className="space-y-3 max-h-64 overflow-y-auto">
             {agentTranscriptions.map((t, i) => (
-              <div key={i} className="flex gap-3">
-                <span className="text-purple-400 text-xs font-semibold mt-1 shrink-0">ALAN</span>
-                <p className="text-slate-300 text-sm">{t.text}</p>
+              <div key={i} className="flex gap-3 items-start">
+                <div className="shrink-0 mt-0.5">
+                  <AlanMarmot size="sm" color="#5C59F3" />
+                </div>
+                <p className="text-[#282830] text-sm">{t.text}</p>
               </div>
             ))}
             {agentTranscriptions.length === 0 && !callEnded && (
-              <p className="text-slate-500 text-sm italic">Conversation will appear here...</p>
+              <p className="text-[#9DA3BA] text-sm italic">Conversation will appear here...</p>
             )}
           </div>
         </div>

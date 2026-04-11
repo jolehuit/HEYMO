@@ -1,28 +1,89 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Alan+Sans:wght@400;500;600;700&display=swap');
 
 :root {
-  --alan-purple: #5b21b6;
-  --alan-purple-light: #7c3aed;
-  --alan-blue: #2563eb;
-  --alan-green: #059669;
-  --alan-orange: #d97706;
-  --alan-red: #dc2626;
-  --bg-primary: #0f172a;
-  --bg-secondary: #1e293b;
-  --bg-card: #334155;
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  /* Alan Brand Colors 2026 — from alan.com */
+  --alan-indigo-50: #F0F3FF;
+  --alan-indigo-100: #D6DBFF;
+  --alan-indigo-300: #8C99FA;
+  --alan-indigo-500: #5C59F3;
+  --alan-indigo-700: #2F33A8;
+  --alan-indigo-900: #0C0A66;
+
+  --alan-teal-50: #EBFAF9;
+  --alan-teal-300: #81DFD7;
+  --alan-teal-500: #2AA79C;
+  --alan-teal-700: #1C6E67;
+
+  --alan-orange-50: #FFF3E5;
+  --alan-orange-300: #FFBD7A;
+  --alan-orange-500: #FF9359;
+  --alan-orange-700: #FF6D39;
+  --alan-orange-900: #CF3302;
+
+  --alan-pink-500: #FF709B;
+  --alan-pink-700: #FF2365;
+
+  --alan-red: #CF3302;
+
+  /* Backgrounds */
+  --bg-primary: #FFFFFF;
+  --bg-cream: #FFFCF5;
+  --bg-card: #FFFFFF;
+  --bg-muted: #F5F8FE;
+
+  /* Text — Alan grey scale */
+  --text-primary: #282830;
+  --text-secondary: #464754;
+  --text-muted: #9DA3BA;
+  --text-light: #B4BCD3;
+
+  /* Borders */
+  --border-light: #ECF1FC;
+  --border-default: #DBE2F4;
 }
 
 body {
-  background-color: var(--bg-primary);
+  background-color: var(--bg-cream);
   color: var(--text-primary);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: "Alan Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
 /* LiveKit component overrides */
 [data-lk-theme="default"] {
-  --lk-bg: var(--bg-secondary);
+  --lk-bg: var(--bg-primary);
   --lk-fg: var(--text-primary);
 }
+
+/* Alan indigo primary button */
+.alan-btn-primary {
+  background: var(--alan-indigo-500);
+  color: white;
+  font-weight: 600;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(92, 89, 243, 0.25);
+}
+.alan-btn-primary:hover {
+  background: var(--alan-indigo-700);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(92, 89, 243, 0.35);
+}
+
+/* Alan card style */
+.alan-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  transition: all 0.2s ease;
+}
+.alan-card:hover {
+  border-color: var(--border-default);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+/* Alert level badges — using Alan palette */
+.alert-green { background: var(--alan-teal-50); color: var(--alan-teal-700); border: 1px solid var(--alan-teal-300); }
+.alert-orange { background: var(--alan-orange-50); color: var(--alan-orange-900); border: 1px solid var(--alan-orange-300); }
+.alert-red { background: #FFEAEA; color: var(--alan-orange-900); border: 1px solid #FFC2C2; }

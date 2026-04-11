@@ -25,7 +25,7 @@ export const PATIENTS: PatientProfile[] = [
     eventDescription: "Right knee arthroscopy",
     eventDate: "March 26, 2026",
     emoji: "🦵",
-    color: "from-blue-600 to-blue-800",
+    color: "blue",
   },
   {
     id: "marc_dubois",
@@ -36,7 +36,7 @@ export const PATIENTS: PatientProfile[] = [
     eventDescription: "Type 2 diabetes follow-up",
     eventDate: "April 2, 2026",
     emoji: "💉",
-    color: "from-green-600 to-green-800",
+    color: "green",
   },
   {
     id: "lea_chen",
@@ -47,6 +47,6 @@ export const PATIENTS: PatientProfile[] = [
     eventDescription: "Second trimester check-up (22 weeks)",
     eventDate: "April 5, 2026",
     emoji: "🤰",
-    color: "from-purple-600 to-purple-800",
+    color: "blue",
   },
 ];

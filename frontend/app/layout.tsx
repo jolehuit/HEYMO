@@ -2,9 +2,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Alan Care Call — AI Health Follow-up",
+  title: "HeyMo by Alan — AI Health Follow-up",
   description:
     "Proactive voice AI agent that calls members for post-consultation health follow-up.",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
@@ -14,7 +17,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen antialiased">{children}</body>
+      <body className="min-h-screen antialiased">
+        {children}
+      </body>
     </html>
   );
 }
