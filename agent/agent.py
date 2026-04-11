@@ -350,6 +350,7 @@ async def entrypoint(ctx: JobContext):
         tts=mistralai.TTS(voice=tts_voice),
         vad=ctx.proc.userdata["vad"],
         turn_detection=MultilingualModel(),
+        allow_interruptions=False,
     )
 
     # --- Handle disconnect → send summary to frontend ---
