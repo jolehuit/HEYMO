@@ -303,7 +303,10 @@ class AlanHealthAgent(Agent):
             label = "Teleconsultation"
             desc = f"Doctor within 30 min · Included in {plan}"
         await self._send_cta("teleconsultation", label, {"description": desc})
-        return f"I've requested a teleconsultation for you. A doctor from Alan's network will call you within the next 30 minutes. It's fully covered by your {self._patient['contract']['formula']} plan."
+        plan = self._patient['contract']['formula']
+        if self._lang == "fr":
+            return f"Je vous affiche le bouton téléconsultation à l'écran. C'est inclus dans votre contrat {plan}."
+        return f"I'm showing the teleconsultation button on your screen. It's included in your {plan} plan."
 
     @function_tool
     async def connect_with_doctor(
@@ -347,8 +350,8 @@ class AlanHealthAgent(Agent):
         })
 
         if self._lang == "fr":
-            return "Je vous mets en relation avec un médecin. Il aura tout le contexte de notre conversation. Vous allez recevoir une notification dans l'app."
-        return "I'm connecting you with a doctor now. They'll have the full context of our conversation. You'll get a notification in the app."
+            return "Je vous affiche un bouton à l'écran pour échanger avec un médecin. Il aura tout le contexte de notre appel."
+        return "I'm showing a button on your screen to chat with a doctor. They'll have our full call context."
 
     # ------------------------------------------------------------------
     # LINKUP HELPER
