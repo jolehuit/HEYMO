@@ -1,25 +1,39 @@
-# HeyMo
+# HeyMo — Voice AI Health Follow-up by Alan
 
-Proactive voice AI agent that calls Alan health insurance members after a medical event (surgery, consultation, pregnancy check-up) to check on them, verify medication compliance, discuss wearable health data, and provide reimbursement info.
+Proactive voice AI agent that calls Alan members after a medical event to check on their recovery, answer questions with real data, and show actionable CTAs on screen during the call.
 
-**Stack:** Mistral (Voxtral STT + Small 4 LLM + Voxtral TTS) + Linkup + Thryve + LiveKit
+**One-liner:** A voice agent calls you after surgery, checks your pain/sleep/meds using real wearable data, finds you the nearest pharmacy on a map, and lets you chat with a doctor who has the full call context.
 
-**Docs:**
-- [PRD.md](./PRD.md) — what we're building and why
-- [ARCHITECTURE.md](./ARCHITECTURE.md) — how the pieces fit together, data flows, compatibility matrix
-- [TASKS.md](./TASKS.md) — who does what, setup commands, checkpoints
+---
+
+## Stack
+
+| Layer | Tech |
+|-------|------|
+| Voice (STT) | Mistral Voxtral Mini Transcribe |
+| LLM | Mistral Small |
+| Voice (TTS) | ElevenLabs (eleven_multilingual_v2 FR / eleven_turbo_v2_5 EN) |
+| Real-time voice | LiveKit Agents SDK |
+| Web search | Linkup API |
+| Wearable data | Thryve API (mock fallback) |
+| Frontend | Next.js 15 + Tailwind |
+| Doctor chat | Mistral Small (via /api/doctor-chat) |
 
 ---
 
 ## How it works
 
-1. The judge opens the URL, picks a patient profile (Sophie, Marc, or Lea)
-2. Clicks "Start Call" — the voice agent wakes up and greets by name
-3. **The judge plays the patient** — has a voice conversation with the agent (1-3 min)
-4. Clicks "End Call"
-5. **The admin dashboard appears** — structured summary of the call (what Alan's care team would see in production): patient state, medications, wearable data, alerts, reimbursement, next steps
-
-The agent follows a **playbook** — a set of instructions in plain English that defines its behavior during the call (tone, what to ask, when to escalate). See [PRD.md section 3](./PRD.md) for details.
+1. User opens the app, picks a patient profile (Sophie, Marc, or Lea)
+2. Taps "Start Call" — Maude (the voice agent) greets by name with a specific question about their recent event
+3. **Live conversation** — Maude reacts to answers, uses wearable data (heart rate, sleep, steps), checks medications, and triggers real-time CTAs on screen:
+   - **Pharmacy search** with real Google Maps overlay
+   - **Doctor chat** button (post-call, Mistral-powered with full call context)
+   - **Reimbursement** breakdown
+   - **Appointment** reminders
+   - **Alert flags** for concerning symptoms
+4. After ~3 turns, Maude wraps up
+5. **Recap screen** shows all CTAs from the call — clickable maps, doctor chat, actions
+6. **Doctor chat** — tap the button, chat with an AI doctor (Mistral) who has the full call context
 
 ---
 
@@ -27,31 +41,49 @@ The agent follows a **playbook** — a set of instructions in plain English that
 
 ### Prerequisites
 
-- Python 3.12+, Node.js 20+, pnpm 9+
-- LiveKit Cloud account → [cloud.livekit.io](https://cloud.livekit.io)
-- LiveKit CLI → `brew install livekit-cli`
-- Mistral API key → [console.mistral.ai](https://console.mistral.ai) (+ $10 coupon onsite)
-- Linkup API key → [linkup.so](https://linkup.so)
-- Thryve credentials → given at hackathon (ask mentors)
-- (Optional) ElevenLabs → Discord `#🎟️│coupon-codes` for backup TTS
+- Python 3.12+, Node.js 20+
+- LiveKit Cloud account + CLI (`brew install livekit-cli`)
+- API keys: Mistral, ElevenLabs, Linkup (optional), Thryve (optional)
 
-### Agent (Python)
+### Agent
 
 ```bash
 cd agent/
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env   # fill in your keys
-python agent.py console  # test with your mic
+python agent.py dev    # local dev with hot-reload
 ```
 
-### Frontend (Next.js)
+### Frontend
 
 ```bash
 cd frontend/
-pnpm install
-cp .env.example .env.local   # fill in LiveKit keys
-pnpm dev                      # http://localhost:3000
+npm install
+cp .env.example .env.local   # fill in LiveKit + Mistral keys
+npm run dev                   # http://localhost:3000
+```
+
+### Environment variables
+
+**Agent** (`agent/.env`):
+```
+MISTRAL_API_KEY=        # Required — STT + LLM + provider name extraction
+ELEVEN_API_KEY=         # Required — TTS
+LINKUP_API_KEY=         # Optional — live web search (falls back to mock)
+THRYVE_API_KEY=         # Optional — wearable data (falls back to mock)
+THRYVE_APP_ID=          # Optional
+LIVEKIT_URL=            # Required
+LIVEKIT_API_KEY=        # Required
+LIVEKIT_API_SECRET=     # Required
+```
+
+**Frontend** (`frontend/.env.local`):
+```
+LIVEKIT_URL=            # Required
+LIVEKIT_API_KEY=        # Required
+LIVEKIT_API_SECRET=     # Required
+MISTRAL_API_KEY=        # Required — doctor chat + summarize + translate
 ```
 
 ### Deploy
@@ -59,64 +91,72 @@ pnpm dev                      # http://localhost:3000
 ```bash
 # Agent → LiveKit Cloud
 cd agent/
-lk cloud auth && lk project set-default "your-project"
-lk agent create --secrets "MISTRAL_API_KEY=xxx" --secrets "LINKUP_API_KEY=xxx"
+lk agent deploy
 
-# Frontend → Vercel
+# Frontend → Vercel (or any Node host)
 cd frontend/
 vercel deploy --prod
-# Set LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET in Vercel dashboard
 ```
 
 ---
 
-## Project Structure
+## Project structure
 
 ```
-alan-care-call/
-├── agent/                     # Python voice agent (Dev 1 + Dev 2)
-│   ├── agent.py               # Agent skeleton — voice pipeline + function tools
-│   ├── playbook.py            # Playbook — Non-tech edits the English text
-│   ├── tools.py               # Function tools — stubs with mock data
-│   ├── patients.json          # 3 patient profiles
+HEYMO/
+├── agent/
+│   ├── agent.py               # Voice agent — pipeline, tools, CTAs
+│   ├── playbook.py            # System prompt — conversation flow, rules
+│   ├── tools.py               # Linkup search, Thryve wearables, reimbursement
+│   ├── patients.json          # 3 patient profiles (Sophie, Marc, Lea)
 │   ├── requirements.txt
 │   ├── Dockerfile
 │   └── .env.example
 │
-├── frontend/                  # Next.js web interface (Dev 3)
-│   ├── app/page.tsx           # Main page — selector → call → dashboard
-│   ├── app/api/token/route.ts # Token endpoint (passes patient_id to agent)
+├── frontend/
+│   ├── app/
+│   │   ├── page.tsx           # Main page — home → call → recap → dashboard
+│   │   └── api/
+│   │       ├── token/         # LiveKit token with patient_id
+│   │       ├── doctor-chat/   # Mistral doctor chat endpoint
+│   │       ├── summarize/     # Post-call summary generation
+│   │       └── translate/     # Translation helper
 │   ├── components/
-│   │   ├── PatientSelector.tsx  # Pick a patient scenario
-│   │   ├── CallInterface.tsx    # Patient view — voice call UI
-│   │   └── Dashboard.tsx        # Admin view — post-call summary
-│   ├── lib/types.ts           # Data contracts (single source of truth)
+│   │   ├── CallInterface.tsx  # Active call — avatar, CTAs, map modal, transcription
+│   │   ├── PatientActions.tsx # Post-call recap — maps, doctor chat, actions
+│   │   ├── DoctorChat.tsx     # Mistral-powered doctor conversation
+│   │   ├── Dashboard.tsx      # Care team view — full call summary
+│   │   ├── AlanHomeScreen.tsx # App home screen
+│   │   └── PhoneFrame.tsx     # iPhone mockup frame
+│   ├── lib/
+│   │   ├── types.ts           # Shared types (CallSummary, LiveCTA, etc.)
+│   │   ├── patients.ts        # Patient profiles for frontend
+│   │   └── i18n.tsx           # FR/EN translations
 │   └── .env.example
 │
-├── pitch/                     # Pitch materials (Non-tech)
-├── PRD.md                     # Product requirements
-├── ARCHITECTURE.md            # System architecture + data flows
-├── TASKS.md                   # Task distribution ← READ THIS FIRST
+├── PRD.md
+├── ARCHITECTURE.md
+├── TASKS.md
 └── README.md
 ```
 
 ---
 
-## Who does what
+## Patient profiles
 
-See **[TASKS.md](./TASKS.md)** for the full breakdown with priorities, setup commands, and checkpoints.
-
-| Dev | Area | Entry point | First command |
-|-----|------|-------------|---------------|
-| **Dev 1** | Agent voice pipeline | `agent/agent.py` | `python agent.py console` |
-| **Dev 2** | Data + Linkup + Thryve APIs | `agent/tools.py` | Test Linkup API |
-| **Dev 3** | Frontend (patient view + admin dashboard) | `frontend/` | `pnpm dev` |
-| **Non-tech** | Playbook + pitch + testing | `agent/playbook.py` | Edit the PLAYBOOK text |
+| Patient | Scenario | Key data |
+|---------|----------|----------|
+| **Sophie Martin** (42) | Right knee arthroscopy | HR elevated, sleep declining, low steps, Lovenox 7 days left |
+| **Marc Dubois** (58) | Type 2 diabetes follow-up | Stable vitals, 3 medications, HbA1c test due |
+| **Lea Chen** (31) | Pregnancy (22 weeks) | HR elevated (normal), reduced activity, morphology ultrasound due |
 
 ---
 
-## Grep all TODOs
+## Key features
 
-```bash
-grep -rn "TODO" agent/ frontend/ --include="*.py" --include="*.ts" --include="*.tsx"
-```
+- **Real-time CTAs** — buttons appear on screen during the call as the agent uses tools
+- **Google Maps** — pharmacy/provider search shows a real map modal with address + phone
+- **Doctor chat** — after the call, patient taps a button to chat with an AI doctor who has the full conversation context
+- **Wearable data** — heart rate, sleep, steps woven into the conversation naturally
+- **Bilingual** — full FR/EN support (voice, CTAs, recap, doctor chat)
+- **Playbook-driven** — conversation behavior is defined in plain English in `playbook.py`, editable by non-engineers
