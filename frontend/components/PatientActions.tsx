@@ -169,7 +169,7 @@ export default function PatientActions({ summary, patient, liveCtas = [], onView
             </div>
           )}
 
-          {/* ─── 5. REMBOURSEMENT (from reimbursement CTAs) ─── */}
+          {/* ─── 5. REMBOURSEMENT (only secu/alan/out-of-pocket, no operation price) ─── */}
           {(reimbursementCtas.length > 0 || summary.reimbursement_discussed) && (
             <div className="bg-white rounded-[16px] border border-[#F0F0F2] p-3.5 shadow-sm">
               <div className="flex items-center gap-2 mb-2.5">
@@ -178,16 +178,18 @@ export default function PatientActions({ summary, patient, liveCtas = [], onView
               </div>
 
               {reimbursementCtas.map((cta, i) => {
-                const data = cta.data || {};
+                const d = cta.data || {};
+                const secu = d.secu_reimbursement ? Number(d.secu_reimbursement) : null;
+                const alan = d.alan_reimbursement ? Number(d.alan_reimbursement) : null;
+                const oop = d.out_of_pocket !== undefined ? Number(d.out_of_pocket) : null;
+                const procedure = d.procedure ? String(d.procedure) : cta.label;
                 return (
                   <div key={i} className="space-y-1 mb-2">
-                    <p className="text-[11px] font-semibold text-[#282830]">{cta.label}</p>
-                    {Object.entries(data).filter(([k]) => k !== "patient_id").map(([key, val]) => (
-                      <div key={key} className="flex justify-between">
-                        <span className="text-[10px] text-[#8E8E93] capitalize">{key.replace(/_/g, " ")}</span>
-                        <span className="text-[10px] font-semibold text-[#282830]">{typeof val === "number" ? `${val}€` : String(val)}</span>
-                      </div>
-                    ))}
+                    <p className="text-[11px] font-semibold text-[#282830]">{procedure}</p>
+                    {secu !== null && <div className="flex justify-between"><span className="text-[10px] text-[#8E8E93]">{isFr ? "Sécu" : "Social security"}</span><span className="text-[10px] font-semibold">{secu}€</span></div>}
+                    {alan !== null && <div className="flex justify-between"><span className="text-[10px] text-[#8E8E93]">Alan</span><span className="text-[10px] font-semibold text-[#5C59F3]">{alan}€</span></div>}
+                    {oop !== null && <div className="flex justify-between border-t border-[#F5F5F7] pt-1"><span className="text-[10px] font-semibold">{isFr ? "Reste à charge" : "Out of pocket"}</span><span className="text-[11px] font-bold">{oop}€</span></div>}
+                    {d.direct_billing ? <p className="text-[10px] text-[#2AA79C] mt-1">✅ {isFr ? "Tiers payant" : "Direct billing"}</p> : null}
                   </div>
                 );
               })}

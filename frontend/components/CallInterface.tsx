@@ -363,37 +363,39 @@ function ActiveCallPhone({
 
         {/* Live CTAs from agent */}
         {ctas.map((cta, i) => {
-          const ctaIcons: Record<string, string> = {
-            reimbursement: "💰", appointment: "📅", provider: "📍",
-            teleconsultation: "🏥", doctor_connect: "👨‍⚕️",
+          const ctaConfig: Record<string, { icon: string; bg: string }> = {
+            reimbursement: { icon: "💰", bg: "bg-[#FFF3E0]" },
+            appointment: { icon: "📅", bg: "bg-[#5C59F3]" },
+            provider: { icon: "📍", bg: "bg-[#EBFAF9]" },
+            teleconsultation: { icon: "🏥", bg: "bg-[#5C59F3]" },
+            doctor_connect: { icon: "👨‍⚕️", bg: "bg-[#5C59F3]" },
           };
-          const isExpanded = expandedCta === i;
+          const cfg = ctaConfig[cta.action] || { icon: "📋", bg: "bg-[#5C59F3]" };
           const data = cta.data || {};
+          const hasDetail = Boolean(data.result || data.description);
+          const isExpanded = expandedCta === i;
+
           return (
-            <div key={`cta-${i}`} className="w-full mb-2 animate-[fadeInUp_0.3s_ease-out]">
+            <div key={`cta-${i}`} className="w-full mb-1.5 animate-[fadeInUp_0.3s_ease-out]">
               <button
-                onClick={() => setExpandedCta(isExpanded ? null : i)}
-                className="w-full bg-[#F0F0FF] rounded-[12px] px-3 py-2.5 flex items-center gap-2.5 active:scale-[0.98] transition-transform"
+                onClick={() => hasDetail && setExpandedCta(isExpanded ? null : i)}
+                className="w-full bg-white border border-[#F0F0F2] rounded-[12px] px-3 py-2.5 flex items-center gap-2.5 active:scale-[0.98] transition-transform shadow-sm"
               >
-                <div className="w-7 h-7 rounded-[8px] bg-[#5C59F3] flex items-center justify-center text-xs shrink-0">
-                  {ctaIcons[cta.action] || "📋"}
+                <div className={`w-7 h-7 rounded-[8px] ${cfg.bg} flex items-center justify-center text-xs shrink-0`}>
+                  {cfg.icon}
                 </div>
-                <p className="text-[11px] font-semibold text-[#5C59F3] flex-1 text-left">{cta.label}</p>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5C59F3" strokeWidth="2.5" strokeLinecap="round"
-                  className={`transition-transform ${isExpanded ? "rotate-90" : ""}`}>
-                  <path d="M9 18l6-6-6-6"/>
-                </svg>
+                <p className="text-[11px] font-semibold text-[#282830] flex-1 text-left">{cta.label}</p>
+                {hasDetail && (
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#5C59F3" strokeWidth="2.5" strokeLinecap="round"
+                    className={`transition-transform ${isExpanded ? "rotate-90" : ""}`}>
+                    <path d="M9 18l6-6-6-6"/>
+                  </svg>
+                )}
               </button>
-              {isExpanded && (
-                <div className="bg-white border border-[#F0F0FF] rounded-b-[12px] px-3 py-2.5 -mt-1 space-y-1.5">
-                  {/* Rich description from agent (already localized) */}
-                  {data.description ? (
-                    <p className="text-[10px] text-[#3C3C43] leading-relaxed">{String(data.description)}</p>
-                  ) : null}
-                  {/* Provider: show search result preview */}
-                  {cta.action === "provider" && data.result ? (
-                    <p className="text-[10px] text-[#3C3C43] leading-relaxed">{String(data.result).slice(0, 250)}</p>
-                  ) : null}
+              {isExpanded && hasDetail && (
+                <div className="bg-[#F5F8FE] border border-[#ECF1FC] border-t-0 rounded-b-[12px] px-3 py-2 space-y-1">
+                  {data.description ? <p className="text-[10px] text-[#3C3C43] leading-relaxed">{String(data.description)}</p> : null}
+                  {cta.action === "provider" && data.result ? <p className="text-[10px] text-[#3C3C43] leading-relaxed">{String(data.result).slice(0, 250)}</p> : null}
                 </div>
               )}
             </div>
