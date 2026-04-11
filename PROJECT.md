@@ -33,7 +33,7 @@ Everything the agent does appears as a live CTA button on the patient's screen d
 - Google Maps — Real map overlays for provider/pharmacy results
 
 ## Special Track
-- [x] Alan Play: Health App in a Prompt
+- [x] ElevenLabs
 
 ## What We'd Do Next
 - Real appointment booking (Doctolib API integration) instead of just showing provider info
