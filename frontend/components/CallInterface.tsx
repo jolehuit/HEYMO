@@ -386,22 +386,22 @@ function ActiveCallPhone({
           const desc = data.description ? String(data.description) : "";
           const isLoading = desc === "...";
 
-          // Provider CTA with map card
-          if (cta.action === "provider" && data.show_map && !isLoading) {
+          // Provider CTA — clean address card
+          if (cta.action === "provider" && !isLoading) {
+            const address = data.address ? String(data.address) : "";
+            const phone = data.phone ? String(data.phone) : "";
             return (
               <div key={`cta-${i}`} className="w-full mb-2 animate-[fadeInUp_0.3s_ease-out]">
-                <div className="bg-white border border-[#F0F0F2] rounded-[14px] overflow-hidden shadow-sm">
-                  {/* Mini map */}
-                  <div className="h-[80px] bg-gradient-to-b from-[#D4E8D0] to-[#E8F5E9] relative">
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[#5C59F3] border-2 border-white shadow-lg flex items-center justify-center">
-                      <span className="text-white text-xs">📍</span>
+                <div className="bg-white border border-[#F0F0F2] rounded-[14px] px-3 py-3 shadow-sm">
+                  <div className="flex items-start gap-2.5">
+                    <div className="w-9 h-9 rounded-[10px] bg-[#EBFAF9] flex items-center justify-center shrink-0 mt-0.5">
+                      <span className="text-base">📍</span>
                     </div>
-                    <span className="absolute bottom-1.5 right-2 text-[8px] text-[#8E8E93] bg-white/80 px-1.5 py-0.5 rounded">Alan Map</span>
-                  </div>
-                  {/* Provider info */}
-                  <div className="px-3 py-2.5">
-                    <p className="text-[11px] font-bold text-[#282830]">{cta.label}</p>
-                    {desc && <p className="text-[10px] text-[#8E8E93] mt-0.5">{desc}</p>}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12px] font-bold text-[#282830]">{cta.label}</p>
+                      {address && <p className="text-[10px] text-[#8E8E93] mt-0.5">{address}</p>}
+                      {phone && <p className="text-[10px] text-[#5C59F3] font-medium mt-0.5">{phone}</p>}
+                    </div>
                   </div>
                 </div>
               </div>
