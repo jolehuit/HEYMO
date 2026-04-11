@@ -261,12 +261,16 @@ class AlanHealthAgent(Agent):
             specialty: The type of provider, e.g. 'orthopedic surgeon',
                       'endocrinologist', 'gynecologist', 'physiotherapist'
         """
+        import re
         location = self._patient.get("location", "Paris")
-        cta_id = f"provider-{specialty}"
+        # Clean specialty — the LLM sometimes passes a full sentence
+        clean_specialty = specialty.split(" near ")[0].split(" à ")[0].split(" dans ")[0][:40].strip()
+        cta_id = f"provider-{clean_specialty[:20]}"
 
-        label = f"{specialty} — {location}"
-        await self._send_cta("provider", label, {
-            "description": "Recherche..." if self._lang == "fr" else "Searching...",
+        # Loading CTA with clean label
+        loading_label = f"Pharmacie — {location}" if any(w in clean_specialty.lower() for w in ["pharm", "officine"]) else f"{clean_specialty} — {location}"
+        await self._send_cta("provider", loading_label, {
+            "description": "...",
             "loading": True,
         }, cta_id=cta_id)
 
@@ -274,56 +278,56 @@ class AlanHealthAgent(Agent):
         if linkup_api_key:
             try:
                 from linkup import LinkupClient
-                import re
                 client = LinkupClient()
                 if self._lang == "fr":
-                    query = f"{specialty} {location} nom adresse exacte numéro téléphone"
+                    query = f"{clean_specialty} {location} nom adresse numéro téléphone"
                 else:
-                    query = f"{specialty} near {location} name exact address phone number"
+                    query = f"{clean_specialty} near {location} name address phone"
                 result = await client.async_search(
                     query=query, depth="standard",
                     output_type="sourcedAnswer", timeout=10.0,
                 )
                 self._actions.append({
                     "type": "provider_search",
-                    "description": f"Searched for {specialty} in {location}",
+                    "description": f"Searched for {clean_specialty} in {location}",
                 })
                 answer = result.answer or ""
-                # Extract address (number + street name)
-                addr_match = re.search(r'\d{1,4}[\s,]+(?:rue|avenue|boulevard|place|passage|impasse|allée)[^,.]{5,60}', answer, re.IGNORECASE)
+
+                # Extract provider name
+                name_match = re.search(r'(?:Pharmacie|Dr\.?|Cabinet|Clinique|Centre|Hospital)[^\n,.]{3,50}', answer, re.IGNORECASE)
+                provider_name = name_match.group(0).strip() if name_match else loading_label
+
+                # Extract address
+                addr_match = re.search(
+                    r'\d{1,4}[\s,]+(?:rue|avenue|boulevard|place|passage|impasse|allée|chemin|quai|street|road)[^,.\n]{3,80}',
+                    answer, re.IGNORECASE
+                )
+                if not addr_match:
+                    addr_match = re.search(r'\d{1,4}[^,.\n]{5,60}(?:750\d{2}|Paris|Lyon|Bordeaux)', answer, re.IGNORECASE)
                 address = addr_match.group(0).strip() if addr_match else location
+
                 # Extract phone
                 phone_match = re.search(r'(?:0[1-9][\s.]?\d{2}[\s.]?\d{2}[\s.]?\d{2}[\s.]?\d{2})', answer)
                 phone = phone_match.group(0).strip() if phone_match else None
-                # Extract provider name
-                name_match = re.search(r'(?:Pharmacie|Dr\.?|Cabinet|Clinique|Centre)[^\n,.]{3,50}', answer, re.IGNORECASE)
-                provider_label = name_match.group(0).strip() if name_match else f"{specialty} — {location}"
 
                 desc_parts = [address]
                 if phone:
                     desc_parts.append(phone)
-                await self._send_cta("provider", provider_label, {
+                await self._send_cta("provider", provider_name, {
                     "address": address,
                     "phone": phone,
-                    "specialty": specialty,
-                    "location": location,
                     "description": " · ".join(desc_parts),
                     "show_map": True,
                 }, cta_id=cta_id)
-                # Tell the LLM to speak in the right language
-                return (
-                    f"IMPORTANT: Tell the patient the EXACT name and address from the results below. "
-                    f"Speak in {'French' if self._lang == 'fr' else 'English'}.\n"
-                    f"Results:\n{answer}"
-                )
+                # Don't repeat CTA info — it's on screen
+                return f"SHOWN ON SCREEN. Don't repeat name/address. Just say you're showing it and ask a question."
             except Exception as e:
                 logger.warning(f"Linkup provider search error: {e}")
 
-        await self._send_cta("provider", f"{specialty} — {location}", {
-            "address": location, "specialty": specialty,
-            "location": location, "description": location,
+        await self._send_cta("provider", loading_label, {
+            "address": location, "description": location,
         }, cta_id=cta_id)
-        return f"No detailed results. {specialty} near {location} shown on screen."
+        return f"Shown on screen. Don't repeat details. Ask a question."
 
     @function_tool
     async def request_teleconsultation(self, context: RunContext) -> str:
