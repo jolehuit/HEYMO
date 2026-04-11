@@ -287,18 +287,45 @@ class AlanHealthAgent(Agent):
             except Exception as e:
                 logger.warning(f"Linkup provider search error: {e}")
 
-        if self._lang == "fr":
-            label = f"{specialty} près de {location}"
-            desc = f"Recherche de {specialty} à {location}"
+        # Fallback: use nearby doctors from patient data
+        nearby = self._patient.get("nearby_doctors", [])
+        # Filter by specialty keyword (fuzzy match)
+        specialty_lower = specialty.lower()
+        matched = [d for d in nearby if specialty_lower in d.get("specialty", "").lower() or specialty_lower in d.get("name", "").lower()]
+        if not matched:
+            matched = nearby  # Show all if no match
+
+        if matched:
+            if self._lang == "fr":
+                lines = [f"• {d['name']} — {d['specialty']}, à {d['distance']} ({d['sector']})" for d in matched]
+                label = f"{matched[0]['name']} — {matched[0]['distance']}"
+                desc = "\n".join(lines)
+                result_text = f"Professionnels proches de {location} :\n" + "\n".join(lines)
+            else:
+                lines = [f"• {d['name']} — {d['specialty']}, {d['distance']} away ({d['sector']})" for d in matched]
+                label = f"{matched[0]['name']} — {matched[0]['distance']}"
+                desc = "\n".join(lines)
+                result_text = f"Providers near {location}:\n" + "\n".join(lines)
         else:
-            label = f"{specialty} near {location}"
-            desc = f"Searching for {specialty} in {location}"
+            if self._lang == "fr":
+                label = f"{specialty} près de {location}"
+                desc = f"Aucun résultat trouvé pour {specialty}"
+                result_text = f"Je n'ai pas trouvé de {specialty} près de {location} pour le moment."
+            else:
+                label = f"{specialty} near {location}"
+                desc = f"No results found for {specialty}"
+                result_text = f"I couldn't find a {specialty} near {location} right now."
+
+        self._actions.append({
+            "type": "provider_search",
+            "description": f"Searched for {specialty} in {location}",
+        })
         await self._send_cta("provider", label, {
             "specialty": specialty,
             "location": location,
             "description": desc,
         })
-        return f"I can help you find a {specialty} in {location}. You can find practitioners near you in the Alan app via Alan Map."
+        return result_text
 
     @function_tool
     async def request_teleconsultation(self, context: RunContext) -> str:
