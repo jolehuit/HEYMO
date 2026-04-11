@@ -8,28 +8,29 @@
 
 import Image from "next/image";
 import { PATIENTS, PatientProfile } from "@/lib/patients";
+import { useTranslation } from "@/lib/i18n";
 import { PhoneIcon } from "./AlanIcons";
+import LanguageSelector from "./LanguageSelector";
 
 interface PatientSelectorProps {
   onSelect: (patient: PatientProfile) => void;
 }
 
-const planColors: Record<string, { bg: string; text: string; badge: string }> = {
-  blue: {
-    bg: "bg-[#F0F3FF]",
-    text: "text-[#5C59F3]",
-    badge: "bg-[#5C59F3]",
-  },
-  green: {
-    bg: "bg-[#EBFAF9]",
-    text: "text-[#1C6E67]",
-    badge: "bg-[#2AA79C]",
-  },
+const planColors: Record<string, { bg: string; badge: string }> = {
+  blue: { bg: "bg-[#F0F3FF]", badge: "bg-[#5C59F3]" },
+  green: { bg: "bg-[#EBFAF9]", badge: "bg-[#2AA79C]" },
 };
 
 export default function PatientSelector({ onSelect }: PatientSelectorProps) {
+  const { t } = useTranslation();
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-[#FFFCF5]">
+    <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-[#FFFCF5] relative">
+      {/* Language selector top-right */}
+      <div className="absolute top-6 right-6">
+        <LanguageSelector />
+      </div>
+
       {/* Header with Maude mascot */}
       <div className="text-center mb-10">
         <div className="flex flex-col items-center mb-4">
@@ -47,9 +48,9 @@ export default function PatientSelector({ onSelect }: PatientSelectorProps) {
           <p className="text-xs font-semibold text-[#9DA3BA] uppercase tracking-widest mt-1">by alan</p>
         </div>
         <p className="text-lg text-[#464754] max-w-xl">
-          AI-powered voice follow-up for health members.
+          {t("landing.subtitle")}
           <br />
-          <span className="text-[#9DA3BA]">Select a patient profile to start a care call.</span>
+          <span className="text-[#9DA3BA]">{t("landing.cta_hint")}</span>
         </p>
       </div>
 
@@ -63,13 +64,12 @@ export default function PatientSelector({ onSelect }: PatientSelectorProps) {
               onClick={() => onSelect(patient)}
               className="alan-card text-left p-0 overflow-hidden hover:scale-[1.02] transition-transform duration-200"
             >
-              {/* Card header with plan color */}
               <div className={`${colors.bg} px-6 py-4 flex items-center justify-between`}>
                 <div className="flex items-center gap-3">
                   <span className="text-3xl">{patient.emoji}</span>
                   <div>
                     <h2 className="text-lg font-bold text-[#282830]">{patient.name}</h2>
-                    <p className="text-sm text-[#464754]">{patient.age} years old</p>
+                    <p className="text-sm text-[#464754]">{patient.age} {t("landing.years_old")}</p>
                   </div>
                 </div>
                 <span className={`${colors.badge} text-white text-xs font-semibold px-3 py-1 rounded-full`}>
@@ -77,17 +77,16 @@ export default function PatientSelector({ onSelect }: PatientSelectorProps) {
                 </span>
               </div>
 
-              {/* Card body */}
               <div className="px-6 py-5">
                 <p className="text-xs font-semibold text-[#9DA3BA] uppercase tracking-wider mb-1">
-                  {patient.eventType}
+                  {t(`event.${patient.eventType}` as never) || patient.eventType}
                 </p>
-                <p className="text-[#282830] font-medium mb-1">{patient.eventDescription}</p>
+                <p className="text-[#282830] font-medium mb-1">{t(`desc.${patient.eventDescription}` as never) || patient.eventDescription}</p>
                 <p className="text-sm text-[#9DA3BA] mb-5">{patient.eventDate}</p>
 
                 <div className="alan-btn-primary py-3 text-center flex items-center justify-center gap-2">
                   <PhoneIcon size={16} color="white" />
-                  Start Call
+                  {t("landing.start_call")}
                 </div>
               </div>
             </button>
@@ -97,7 +96,7 @@ export default function PatientSelector({ onSelect }: PatientSelectorProps) {
 
       {/* Footer */}
       <div className="flex items-center gap-2 mt-12 text-[#9DA3BA] text-sm">
-        <span>Powered by</span>
+        <span>{t("landing.powered_by")}</span>
         <span className="font-semibold text-[#464754]">Mistral</span>
         <span>·</span>
         <span className="font-semibold text-[#464754]">Linkup</span>

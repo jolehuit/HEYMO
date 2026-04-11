@@ -11,20 +11,23 @@ import { useState } from "react";
 import PatientSelector from "@/components/PatientSelector";
 import CallInterface from "@/components/CallInterface";
 import { PatientProfile } from "@/lib/patients";
+import { I18nProvider } from "@/lib/i18n";
 
 export default function Home() {
   const [selectedPatient, setSelectedPatient] = useState<PatientProfile | null>(
     null
   );
 
-  if (selectedPatient) {
-    return (
-      <CallInterface
-        patient={selectedPatient}
-        onBack={() => setSelectedPatient(null)}
-      />
-    );
-  }
-
-  return <PatientSelector onSelect={setSelectedPatient} />;
+  return (
+    <I18nProvider>
+      {selectedPatient ? (
+        <CallInterface
+          patient={selectedPatient}
+          onBack={() => setSelectedPatient(null)}
+        />
+      ) : (
+        <PatientSelector onSelect={setSelectedPatient} />
+      )}
+    </I18nProvider>
+  );
 }

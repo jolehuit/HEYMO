@@ -12,7 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
-    const { patientId, roomName } = await request.json();
+    const { patientId, roomName, language } = await request.json();
 
     if (!patientId) {
       return NextResponse.json(
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     // Create the token with patient_id in attributes
     const token = new AccessToken(apiKey, apiSecret, {
       identity: `patient-${patientId}`,
-      attributes: { patient_id: patientId },
+      attributes: { patient_id: patientId, language: language || "fr" },
     });
 
     token.addGrant({

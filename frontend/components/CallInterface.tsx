@@ -6,12 +6,13 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import {
   LiveKitRoom,
   useVoiceAssistant,
   BarVisualizer,
+  VideoTrack,
   RoomAudioRenderer,
   DisconnectButton,
   useTextStream,
@@ -19,21 +20,29 @@ import {
 import "@livekit/components-styles";
 import { PatientProfile } from "@/lib/patients";
 import { CallSummary, LiveAlert } from "@/lib/types";
+import { useTranslation } from "@/lib/i18n";
 import Dashboard from "./Dashboard";
-import { AlertTriangleIcon } from "./AlanIcons";
+import PhoneNotification from "./PhoneNotification";
+import PatientActions from "./PatientActions";
+import { AlertTriangleIcon, MicIcon, PillIcon, CalendarIcon, PhoneIcon } from "./AlanIcons";
 
 interface CallInterfaceProps {
   patient: PatientProfile;
   onBack: () => void;
 }
 
+const SUMMARY_TIMEOUT = 30_000; // 30s max wait for summary
+
 export default function CallInterface({ patient, onBack }: CallInterfaceProps) {
+  const { t, locale } = useTranslation();
   const [token, setToken] = useState<string | null>(null);
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(true);
   const [callEnded, setCallEnded] = useState(false);
   const [summary, setSummary] = useState<CallSummary | null>(null);
+  const [summaryTimeout, setSummaryTimeout] = useState(false);
+  const [postCallStep, setPostCallStep] = useState<"notification" | "actions" | "dashboard">("notification");
 
   useEffect(() => {
     async function fetchToken() {
@@ -41,7 +50,7 @@ export default function CallInterface({ patient, onBack }: CallInterfaceProps) {
         const response = await fetch("/api/token", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ patientId: patient.id }),
+          body: JSON.stringify({ patientId: patient.id, language: locale }),
         });
         if (!response.ok) throw new Error("Failed to get token");
         const data = await response.json();
@@ -54,7 +63,15 @@ export default function CallInterface({ patient, onBack }: CallInterfaceProps) {
       }
     }
     fetchToken();
-  }, [patient.id]);
+  }, [patient.id, locale]);
+
+  // Timeout for summary generation
+  useEffect(() => {
+    if (callEnded && !summary) {
+      const timer = setTimeout(() => setSummaryTimeout(true), SUMMARY_TIMEOUT);
+      return () => clearTimeout(timer);
+    }
+  }, [callEnded, summary]);
 
   const handleDisconnected = useCallback(() => setCallEnded(true), []);
   const handleSummaryReceived = useCallback((data: CallSummary) => setSummary(data), []);
@@ -67,17 +84,17 @@ export default function CallInterface({ patient, onBack }: CallInterfaceProps) {
           <div className="w-14 h-14 rounded-full bg-[#FFF3E5] flex items-center justify-center mx-auto mb-4">
             <AlertTriangleIcon size={28} color="#FF6D39" />
           </div>
-          <p className="text-[#282830] text-lg font-semibold mb-2">Connection failed</p>
+          <p className="text-[#282830] text-lg font-semibold mb-2">{t("call.error_title")}</p>
           <p className="text-[#9DA3BA] text-sm mb-6">{error}</p>
           <button onClick={onBack} className="alan-btn-primary px-6 py-3 w-full">
-            Back to patient selection
+            {t("call.error_back")}
           </button>
         </div>
       </div>
     );
   }
 
-  // --- Loading state (cold start) — Maude pulsing ---
+  // --- Loading state (cold start) ---
   if (isConnecting || !token || !url) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FFFCF5]">
@@ -86,27 +103,17 @@ export default function CallInterface({ patient, onBack }: CallInterfaceProps) {
             <div className="absolute inset-0 rounded-full bg-[#5C59F3]/10 animate-ping" />
             <div className="absolute inset-2 rounded-full bg-[#5C59F3]/5 animate-pulse" />
             <div className="absolute inset-0 flex items-center justify-center">
-              <Image
-                src="/maude.png"
-                alt="Maude connecting..."
-                width={90}
-                height={90}
-                className="drop-shadow-lg animate-pulse"
-              />
+              <Image src="/maude.png" alt="Maude" width={90} height={90} className="drop-shadow-lg animate-pulse" />
             </div>
           </div>
-          <h2 className="text-2xl font-bold text-[#282830] mb-2">Maude is getting ready...</h2>
-          <p className="text-[#9DA3BA]">This may take 10-15 seconds on first connection</p>
-          <div className="flex items-center justify-center gap-2 mt-6 bg-[#F0F3FF] px-4 py-2 rounded-full">
-            <span className="text-2xl">{patient.emoji}</span>
-            <span className="text-[#464754] font-medium">{patient.name}</span>
-          </div>
+          <h2 className="text-2xl font-bold text-[#282830] mb-2">{t("call.connecting")}</h2>
+          <p className="text-[#9DA3BA]">{t("call.connecting_hint")}</p>
         </div>
       </div>
     );
   }
 
-  // --- Generating summary (call ended, waiting for summary) ---
+  // --- Generating summary (with timeout) ---
   if (callEnded && !summary) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FFFCF5]">
@@ -114,27 +121,43 @@ export default function CallInterface({ patient, onBack }: CallInterfaceProps) {
           <div className="relative w-28 h-28 mx-auto mb-6">
             <div className="absolute inset-0 rounded-full bg-[#5C59F3]/10 animate-pulse" />
             <div className="absolute inset-0 flex items-center justify-center">
-              <Image
-                src="/maude.png"
-                alt="Maude generating summary..."
-                width={80}
-                height={80}
-                className="drop-shadow-lg"
-              />
+              <Image src="/maude.png" alt="Maude" width={80} height={80} className="drop-shadow-lg" />
             </div>
           </div>
-          <h2 className="text-xl font-bold text-[#282830] mb-2">Maude is writing the summary...</h2>
-          <p className="text-[#9DA3BA] mb-8">Analyzing the conversation and preparing your report</p>
-          <button onClick={onBack} className="text-sm text-[#9DA3BA] hover:text-[#464754] transition-colors underline">
-            Skip and go back
+          <h2 className="text-xl font-bold text-[#282830] mb-2">{t("call.generating_summary")}</h2>
+          <p className="text-[#9DA3BA] mb-6">{t("call.generating_hint")}</p>
+          {summaryTimeout && (
+            <p className="text-[#FF6D39] text-sm mb-4">
+              {locale === "fr" ? "Le résumé prend plus de temps que prévu..." : "Summary is taking longer than expected..."}
+            </p>
+          )}
+          <button onClick={onBack} className="alan-btn-primary px-6 py-3">
+            {t("call.skip")}
           </button>
         </div>
       </div>
     );
   }
 
-  // --- Dashboard after call ends ---
+  // --- Post-call flow: notification → actions → dashboard ---
   if (callEnded && summary) {
+    if (postCallStep === "notification") {
+      return (
+        <PhoneNotification
+          patientName={patient.name.split(" ")[0]}
+          onOpen={() => setPostCallStep("actions")}
+        />
+      );
+    }
+    if (postCallStep === "actions") {
+      return (
+        <PatientActions
+          summary={summary}
+          onViewDashboard={() => setPostCallStep("dashboard")}
+          onBack={onBack}
+        />
+      );
+    }
     return <Dashboard summary={summary} onBack={onBack} />;
   }
 
@@ -154,6 +177,62 @@ export default function CallInterface({ patient, onBack }: CallInterfaceProps) {
   );
 }
 
+/* ─── Patient info sheet (sidebar during call) ─── */
+function PatientInfoSheet({ patient }: { patient: PatientProfile }) {
+  const { t } = useTranslation();
+  return (
+    <div className="alan-card p-4 text-sm space-y-3 h-fit">
+      <div className="flex items-center gap-2 pb-2 border-b border-[#ECF1FC]">
+        <span className="text-2xl">{patient.emoji}</span>
+        <div>
+          <p className="font-bold text-[#282830]">{patient.name}</p>
+          <p className="text-xs text-[#9DA3BA]">{patient.age} {t("landing.years_old")} · {patient.plan}</p>
+        </div>
+      </div>
+
+      <div>
+        <p className="text-xs font-semibold text-[#9DA3BA] uppercase tracking-wider mb-1">{t(`event.${patient.eventType}` as never) || patient.eventType}</p>
+        <p className="text-[#282830] font-medium">{t(`desc.${patient.eventDescription}` as never) || patient.eventDescription}</p>
+        <p className="text-xs text-[#9DA3BA]">{patient.eventDate}{patient.provider ? ` · ${patient.provider}` : ""}</p>
+      </div>
+
+      {patient.followupRequired && (
+        <div className="flex items-start gap-2">
+          <CalendarIcon size={14} color="#5C59F3" className="mt-0.5 shrink-0" />
+          <div>
+            <p className="text-xs text-[#282830]">{patient.followupRequired}</p>
+            <span className={`text-xs font-semibold ${patient.followupBooked ? "text-[#2AA79C]" : "text-[#FF6D39]"}`}>
+              {patient.followupBooked ? t("patient.followup_booked") : t("patient.followup_not_booked")}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {patient.medications && patient.medications.length > 0 && (
+        <div>
+          <div className="flex items-center gap-1 mb-1">
+            <PillIcon size={14} color="#5C59F3" />
+            <span className="text-xs font-semibold text-[#9DA3BA] uppercase">{t("dashboard.medications")}</span>
+          </div>
+          {patient.medications.map((med, i) => (
+            <div key={i} className="py-1 border-b border-[#ECF1FC] last:border-0">
+              <p className="text-xs font-medium text-[#282830]">{med.name}</p>
+              <p className="text-xs text-[#9DA3BA]">{med.dosage} · {med.remaining_days > 0 ? `${med.remaining_days}j` : t("dashboard.done")}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {patient.communicationStyle && (
+        <div className="text-xs text-[#9DA3BA] italic pt-1 border-t border-[#ECF1FC]">
+          💬 {patient.communicationStyle}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Active call view ─── */
 function ActiveCall({
   patient,
   callEnded,
@@ -163,11 +242,26 @@ function ActiveCall({
   callEnded: boolean;
   onSummaryReceived: (data: CallSummary) => void;
 }) {
-  const { state, audioTrack, agentTranscriptions } = useVoiceAssistant();
+  const { t } = useTranslation();
+  const { state, audioTrack, videoTrack, agentTranscriptions } = useVoiceAssistant();
   const [alerts, setAlerts] = useState<LiveAlert[]>([]);
+  const [callDuration, setCallDuration] = useState(0);
+  const transcriptEndRef = useRef<HTMLDivElement>(null);
 
+  // Only listen for alerts and summary from backend — NOT conversation text
   const { textStreams: liveUpdates } = useTextStream("live-updates");
   const { textStreams: summaryStreams } = useTextStream("call-summary");
+
+  // Note: mic stays always on — LiveKit's turn detector handles interruptions
+
+  useEffect(() => {
+    const interval = setInterval(() => setCallDuration((d) => d + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [agentTranscriptions]);
 
   useEffect(() => {
     if (liveUpdates.length > 0) {
@@ -186,84 +280,155 @@ function ActiveCall({
     }
   }, [summaryStreams, onSummaryReceived]);
 
-  const stateConfig: Record<string, { label: string; color: string; dotColor: string }> = {
-    disconnected: { label: "Disconnected", color: "text-[#9DA3BA]", dotColor: "bg-[#9DA3BA]" },
-    connecting: { label: "Connecting...", color: "text-[#FF9359]", dotColor: "bg-[#FF9359]" },
-    initializing: { label: "Agent waking up...", color: "text-[#FF9359]", dotColor: "bg-[#FF9359]" },
-    idle: { label: "Ready", color: "text-[#5C59F3]", dotColor: "bg-[#5C59F3]" },
-    listening: { label: "Listening", color: "text-[#5C59F3]", dotColor: "bg-[#5C59F3]" },
-    thinking: { label: "Thinking...", color: "text-[#FF9359]", dotColor: "bg-[#FF9359]" },
-    speaking: { label: "Speaking", color: "text-[#5C59F3]", dotColor: "bg-[#5C59F3]" },
-  };
+  const isSpeaking = state === "speaking";
+  const isListening = state === "listening";
+  const isThinking = state === "thinking";
+  const stateKey = `state.${state}` as const;
 
-  const currentState = stateConfig[state] || { label: state, color: "text-[#9DA3BA]", dotColor: "bg-[#9DA3BA]" };
+  // Live subtitle — last thing the AI is saying right now
+  const lastTranscription = agentTranscriptions.length > 0
+    ? agentTranscriptions[agentTranscriptions.length - 1].text
+    : null;
+
+  const fmtDuration = `${Math.floor(callDuration / 60)}:${(callDuration % 60).toString().padStart(2, "0")}`;
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-[#FFFCF5]">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-[#ECF1FC]">
-        <div className="flex items-center gap-4">
-          <Image src="/maude.png" alt="Maude" width={36} height={36} className="rounded-full" />
-          <div className="h-6 w-px bg-[#ECF1FC]" />
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">{patient.emoji}</span>
-            <div>
-              <h1 className="text-lg font-bold text-[#282830]">{patient.name}</h1>
-              <p className="text-sm text-[#9DA3BA]">{patient.eventDescription}</p>
-            </div>
-          </div>
+      <div className="flex items-center justify-between px-6 py-3 bg-white border-b border-[#ECF1FC]">
+        <div className="flex items-center gap-3">
+          <Image src="/maude.png" alt="Maude" width={28} height={28} className="rounded-full" />
+          <span className="text-sm font-bold text-[#282830]">HeyMo</span>
+          <div className="h-4 w-px bg-[#ECF1FC]" />
+          <PhoneIcon size={14} color="#2AA79C" />
+          <span className="text-sm text-[#2AA79C] font-mono">{fmtDuration}</span>
         </div>
-        <div className="flex items-center gap-4">
-          <span className={`text-sm font-medium flex items-center gap-2 ${currentState.color}`}>
-            <span className={`w-2 h-2 rounded-full animate-pulse ${currentState.dotColor}`} />
-            {currentState.label}
-          </span>
-          <DisconnectButton className="px-5 py-2.5 bg-[#FF6D39] hover:bg-[#CF3302] text-white rounded-xl text-sm font-semibold transition-colors">
-            End Call
-          </DisconnectButton>
-        </div>
+        <DisconnectButton className="px-4 py-2 bg-[#FF6D39] hover:bg-[#CF3302] text-white rounded-xl text-sm font-semibold transition-colors flex items-center gap-2">
+          <PhoneIcon size={14} color="white" />
+          {t("call.end")}
+        </DisconnectButton>
       </div>
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col items-center justify-center p-8">
-        {/* Audio visualizer area */}
-        <div className="w-full max-w-md h-48 mb-8">
-          {audioTrack ? (
-            <BarVisualizer state={state} trackRef={audioTrack} barCount={24} className="w-full h-full" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <div className="relative">
-                <div className="absolute inset-0 rounded-full bg-[#5C59F3]/10 animate-pulse scale-150" />
-                <Image src="/maude.png" alt="Maude waiting" width={80} height={80} className="relative drop-shadow-lg" />
-              </div>
-            </div>
-          )}
+      {/* Main layout */}
+      <div className="flex-1 flex">
+        {/* Left — Patient info sheet */}
+        <div className="w-72 shrink-0 p-4 border-r border-[#ECF1FC] overflow-y-auto hidden md:block">
+          <p className="text-xs font-semibold text-[#9DA3BA] uppercase tracking-wider mb-3">📋 {t("patient.info")}</p>
+          <PatientInfoSheet patient={patient} />
         </div>
 
-        {/* Live alerts */}
-        {alerts.map((alert, i) => (
-          <div key={i} className={`${alert.level === "red" ? "alert-red" : "alert-orange"} rounded-xl px-5 py-3 mb-3 w-full max-w-lg flex items-start gap-3`}>
-            <AlertTriangleIcon size={18} color={alert.level === "red" ? "#CF3302" : "#FF6D39"} className="mt-0.5 shrink-0" />
-            <div>
-              <span className="font-semibold text-xs uppercase">{alert.level} alert</span>
-              <p className="text-sm mt-0.5">{alert.reason}</p>
-            </div>
-          </div>
-        ))}
+        {/* Center — Call area */}
+        <div className="flex-1 flex flex-col items-center justify-center px-6 py-4">
 
-        {/* Transcription */}
-        <div className="w-full max-w-lg mt-4">
-          <h3 className="text-xs font-semibold text-[#9DA3BA] uppercase tracking-wider mb-3">Conversation</h3>
-          <div className="space-y-3 max-h-64 overflow-y-auto">
-            {agentTranscriptions.map((t, i) => (
-              <div key={i} className="flex gap-3 items-start">
-                <Image src="/maude.png" alt="Maude" width={24} height={24} className="rounded-full shrink-0 mt-0.5" />
-                <p className="text-[#282830] text-sm">{t.text}</p>
-              </div>
-            ))}
-            {agentTranscriptions.length === 0 && !callEnded && (
-              <p className="text-[#9DA3BA] text-sm italic">Conversation will appear here...</p>
+          {/* Avatar — video track if available, else image */}
+          <div className="relative mb-4">
+            {isSpeaking && (
+              <>
+                <div className="absolute -inset-4 rounded-full bg-[#5C59F3]/10 animate-pulse" />
+                <div className="absolute -inset-6 rounded-full bg-[#5C59F3]/5 animate-ping" />
+              </>
             )}
+            {isThinking && (
+              <div className="absolute -inset-4 rounded-full bg-[#FF9359]/10 animate-pulse" />
+            )}
+            {isListening && (
+              <div className="absolute -inset-4 rounded-full bg-[#2AA79C]/10 animate-pulse" />
+            )}
+
+            {videoTrack ? (
+              <div className={`relative w-[130px] h-[130px] rounded-full overflow-hidden drop-shadow-xl transition-all duration-300 ${
+                isSpeaking ? "ring-4 ring-[#5C59F3] ring-offset-2 scale-105" :
+                isThinking ? "ring-4 ring-[#FF9359] ring-offset-2" :
+                isListening ? "ring-4 ring-[#2AA79C] ring-offset-2" :
+                "ring-2 ring-[#ECF1FC]"
+              }`}>
+                <VideoTrack trackRef={videoTrack} className="w-full h-full object-cover" />
+              </div>
+            ) : (
+              <Image
+                src="/maude.png"
+                alt="Maude"
+                width={130}
+                height={130}
+                className={`relative rounded-full drop-shadow-xl transition-all duration-300 ${
+                  isSpeaking ? "ring-4 ring-[#5C59F3] ring-offset-2 scale-105" :
+                  isThinking ? "ring-4 ring-[#FF9359] ring-offset-2" :
+                  isListening ? "ring-4 ring-[#2AA79C] ring-offset-2" :
+                  "ring-2 ring-[#ECF1FC]"
+                }`}
+              />
+            )}
+          </div>
+
+          {/* State label */}
+          <div className={`flex items-center gap-2 mb-2 text-sm font-semibold ${
+            isSpeaking ? "text-[#5C59F3]" :
+            isThinking ? "text-[#FF9359]" :
+            isListening ? "text-[#2AA79C]" :
+            "text-[#9DA3BA]"
+          }`}>
+            {isListening && <MicIcon size={16} color="#2AA79C" />}
+            {t(stateKey)}
+          </div>
+
+          {/* Live subtitle — what Maude is saying RIGHT NOW */}
+          <div className="w-full max-w-md h-12 flex items-center justify-center mb-4">
+            {isSpeaking && lastTranscription && (
+              <p className="text-[#282830] text-center text-base font-medium animate-pulse">
+                {lastTranscription}
+              </p>
+            )}
+          </div>
+
+          {/* Audio visualizer */}
+          <div className="w-full max-w-xs h-14 mb-6">
+            {audioTrack ? (
+              <BarVisualizer state={state} trackRef={audioTrack} barCount={20} className="w-full h-full" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center gap-1">
+                {[...Array(7)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="w-1 bg-[#5C59F3]/15 rounded-full animate-pulse"
+                    style={{ height: `${8 + Math.random() * 24}px`, animationDelay: `${i * 120}ms` }}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Alerts */}
+          {alerts.length > 0 && (
+            <div className="w-full max-w-md mb-4">
+              {alerts.map((alert, i) => (
+                <div key={i} className={`${alert.level === "red" ? "alert-red" : "alert-orange"} rounded-xl px-4 py-2.5 mb-2 flex items-start gap-2`}>
+                  <AlertTriangleIcon size={16} color={alert.level === "red" ? "#CF3302" : "#FF6D39"} className="mt-0.5 shrink-0" />
+                  <div>
+                    <span className="font-semibold text-xs uppercase">{alert.level} {t("alert.label")}</span>
+                    <p className="text-sm mt-0.5">{alert.reason}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Transcription history — only what Maude said (live from LiveKit, not backend) */}
+          <div className="w-full max-w-md alan-card p-4 max-h-48 overflow-y-auto">
+            <h3 className="text-xs font-semibold text-[#9DA3BA] uppercase tracking-wider mb-2">{t("call.conversation")}</h3>
+            <div className="space-y-2.5">
+              {agentTranscriptions.map((seg, i) => (
+                <div key={i} className="flex gap-2.5 items-start">
+                  <Image src="/maude.png" alt="Maude" width={22} height={22} className="rounded-full shrink-0 mt-0.5" />
+                  <p className="text-[#282830] text-sm bg-[#F0F3FF] rounded-xl rounded-tl-none px-3 py-1.5">
+                    {seg.text}
+                  </p>
+                </div>
+              ))}
+              {agentTranscriptions.length === 0 && !callEnded && (
+                <p className="text-[#9DA3BA] text-sm italic text-center py-3">{t("call.conversation_placeholder")}</p>
+              )}
+              <div ref={transcriptEndRef} />
+            </div>
           </div>
         </div>
       </div>
