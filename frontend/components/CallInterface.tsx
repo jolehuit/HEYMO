@@ -7,6 +7,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import {
   LiveKitRoom,
   useVoiceAssistant,
@@ -19,8 +20,7 @@ import "@livekit/components-styles";
 import { PatientProfile } from "@/lib/patients";
 import { CallSummary, LiveAlert } from "@/lib/types";
 import Dashboard from "./Dashboard";
-import { AlanMarmot } from "./AlanLogo";
-import { MicIcon, AlertTriangleIcon } from "./AlanIcons";
+import { AlertTriangleIcon } from "./AlanIcons";
 
 interface CallInterfaceProps {
   patient: PatientProfile;
@@ -77,25 +77,57 @@ export default function CallInterface({ patient, onBack }: CallInterfaceProps) {
     );
   }
 
-  // --- Loading state (cold start) ---
+  // --- Loading state (cold start) — Maude pulsing ---
   if (isConnecting || !token || !url) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FFFCF5]">
         <div className="text-center">
-          {/* Marmot face pulsing */}
-          <div className="relative w-28 h-28 mx-auto mb-8">
+          <div className="relative w-32 h-32 mx-auto mb-8">
             <div className="absolute inset-0 rounded-full bg-[#5C59F3]/10 animate-ping" />
-            <div className="absolute inset-2 rounded-full bg-[#5C59F3]/10 animate-pulse" />
+            <div className="absolute inset-2 rounded-full bg-[#5C59F3]/5 animate-pulse" />
             <div className="absolute inset-0 flex items-center justify-center">
-              <AlanMarmot size="lg" color="#5C59F3" />
+              <Image
+                src="/maude.png"
+                alt="Maude connecting..."
+                width={90}
+                height={90}
+                className="drop-shadow-lg animate-pulse"
+              />
             </div>
           </div>
-          <h2 className="text-2xl font-bold text-[#282830] mb-2">Connecting to your health agent...</h2>
+          <h2 className="text-2xl font-bold text-[#282830] mb-2">Maude is getting ready...</h2>
           <p className="text-[#9DA3BA]">This may take 10-15 seconds on first connection</p>
           <div className="flex items-center justify-center gap-2 mt-6 bg-[#F0F3FF] px-4 py-2 rounded-full">
             <span className="text-2xl">{patient.emoji}</span>
             <span className="text-[#464754] font-medium">{patient.name}</span>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Generating summary (call ended, waiting for summary) ---
+  if (callEnded && !summary) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#FFFCF5]">
+        <div className="text-center">
+          <div className="relative w-28 h-28 mx-auto mb-6">
+            <div className="absolute inset-0 rounded-full bg-[#5C59F3]/10 animate-pulse" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Image
+                src="/maude.png"
+                alt="Maude generating summary..."
+                width={80}
+                height={80}
+                className="drop-shadow-lg"
+              />
+            </div>
+          </div>
+          <h2 className="text-xl font-bold text-[#282830] mb-2">Maude is writing the summary...</h2>
+          <p className="text-[#9DA3BA] mb-8">Analyzing the conversation and preparing your report</p>
+          <button onClick={onBack} className="text-sm text-[#9DA3BA] hover:text-[#464754] transition-colors underline">
+            Skip and go back
+          </button>
         </div>
       </div>
     );
@@ -171,7 +203,7 @@ function ActiveCall({
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-[#ECF1FC]">
         <div className="flex items-center gap-4">
-          <AlanMarmot size="sm" color="#5C59F3" />
+          <Image src="/maude.png" alt="Maude" width={36} height={36} className="rounded-full" />
           <div className="h-6 w-px bg-[#ECF1FC]" />
           <div className="flex items-center gap-3">
             <span className="text-2xl">{patient.emoji}</span>
@@ -194,7 +226,7 @@ function ActiveCall({
 
       {/* Main content */}
       <div className="flex-1 flex flex-col items-center justify-center p-8">
-        {/* Audio visualizer */}
+        {/* Audio visualizer area */}
         <div className="w-full max-w-md h-48 mb-8">
           {audioTrack ? (
             <BarVisualizer state={state} trackRef={audioTrack} barCount={24} className="w-full h-full" />
@@ -202,9 +234,7 @@ function ActiveCall({
             <div className="w-full h-full flex items-center justify-center">
               <div className="relative">
                 <div className="absolute inset-0 rounded-full bg-[#5C59F3]/10 animate-pulse scale-150" />
-                <div className="relative bg-[#F0F3FF] rounded-full p-6">
-                  <MicIcon size={32} color="#5C59F3" />
-                </div>
+                <Image src="/maude.png" alt="Maude waiting" width={80} height={80} className="relative drop-shadow-lg" />
               </div>
             </div>
           )}
@@ -227,9 +257,7 @@ function ActiveCall({
           <div className="space-y-3 max-h-64 overflow-y-auto">
             {agentTranscriptions.map((t, i) => (
               <div key={i} className="flex gap-3 items-start">
-                <div className="shrink-0 mt-0.5">
-                  <AlanMarmot size="sm" color="#5C59F3" />
-                </div>
+                <Image src="/maude.png" alt="Maude" width={24} height={24} className="rounded-full shrink-0 mt-0.5" />
                 <p className="text-[#282830] text-sm">{t.text}</p>
               </div>
             ))}

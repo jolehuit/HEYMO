@@ -6,8 +6,8 @@
 
 "use client";
 
+import Image from "next/image";
 import { CallSummary } from "@/lib/types";
-import AlanLogo from "./AlanLogo";
 import { PillIcon, WatchIcon, WalletIcon, ClipboardIcon, CalendarIcon, PhoneIcon, FlagIcon, CheckCircleIcon, HeartPulseIcon } from "./AlanIcons";
 
 interface DashboardProps {
@@ -75,7 +75,7 @@ export default function Dashboard({ summary, onBack }: DashboardProps) {
         <div className="flex items-center justify-between mb-8">
           <div>
             <div className="flex items-center gap-4 mb-2">
-              <AlanLogo size="sm" color="#5C59F3" />
+              <Image src="/maude.png" alt="Maude" width={36} height={36} className="rounded-full" />
               <div className="h-5 w-px bg-[#ECF1FC]" />
               <h1 className="text-2xl font-bold text-[#282830]">Call Summary</h1>
             </div>
