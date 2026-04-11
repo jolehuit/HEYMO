@@ -39,9 +39,10 @@ export default function CallInterface({ patient, onBack, onSummaryGenerated }: C
   const [error, setError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(true);
   const [summary, setSummary] = useState<CallSummary | null>(null);
-  const [postCallStep, setPostCallStep] = useState<"notification" | "actions" | "dashboard">("notification");
+  const [postCallStep, setPostCallStep] = useState<"actions" | "dashboard">("actions");
   const [callPhase, setCallPhase] = useState<"active" | "ending" | "done">("active");
   const collectedTranscriptions = useRef<string[]>([]);
+  const collectedCtas = useRef<LiveCTA[]>([]);
 
   useEffect(() => {
     async function fetchToken() {
@@ -92,6 +93,10 @@ export default function CallInterface({ patient, onBack, onSummaryGenerated }: C
     collectedTranscriptions.current = texts;
   }, []);
 
+  const handleCtaReceived = useCallback((cta: LiveCTA) => {
+    collectedCtas.current = [...collectedCtas.current, cta];
+  }, []);
+
   // --- Error ---
   if (error) {
     return (
@@ -129,21 +134,14 @@ export default function CallInterface({ patient, onBack, onSummaryGenerated }: C
     );
   }
 
-  // --- Post-call flow ---
+  // --- Post-call flow: directly to actions recap ---
   if (summary) {
-    if (postCallStep === "notification") {
-      return (
-        <PhoneNotification
-          patientName={patient.name.split(" ")[0]}
-          onOpen={() => setPostCallStep("actions")}
-        />
-      );
-    }
     if (postCallStep === "actions") {
       return (
         <PatientActions
           summary={summary}
           patient={patient}
+          liveCtas={collectedCtas.current}
           onViewDashboard={() => setPostCallStep("dashboard")}
           onBack={onBack}
         />
@@ -180,7 +178,7 @@ export default function CallInterface({ patient, onBack, onSummaryGenerated }: C
         audio={true}
         className="h-full"
       >
-        <ActiveCallPhone patient={patient} onEndCall={handleEndCall} onTranscriptionUpdate={handleTranscriptionUpdate} />
+        <ActiveCallPhone patient={patient} onEndCall={handleEndCall} onTranscriptionUpdate={handleTranscriptionUpdate} onCtaReceived={handleCtaReceived} />
         <RoomAudioRenderer />
       </LiveKitRoom>
     </PhoneFrame>
@@ -192,10 +190,12 @@ function ActiveCallPhone({
   patient,
   onEndCall,
   onTranscriptionUpdate,
+  onCtaReceived,
 }: {
   patient: PatientProfile;
   onEndCall: () => void;
   onTranscriptionUpdate: (texts: string[]) => void;
+  onCtaReceived: (cta: LiveCTA) => void;
 }) {
   const { t, locale } = useTranslation();
   const { state, audioTrack, videoTrack, agentTranscriptions } = useVoiceAssistant();
@@ -260,7 +260,11 @@ function ActiveCallPhone({
       try {
         const parsed = JSON.parse(liveUpdates[liveUpdates.length - 1].text) as LiveUpdate;
         if (parsed.type === "alert") setAlerts((prev) => [...prev, parsed as LiveAlert]);
-        if (parsed.type === "cta") setCtas((prev) => [...prev, parsed as LiveCTA]);
+        if (parsed.type === "cta") {
+          const ctaData = parsed as LiveCTA;
+          setCtas((prev) => [...prev, ctaData]);
+          onCtaReceived(ctaData);
+        }
       } catch { /* ignore */ }
     }
   }, [liveUpdates]);
