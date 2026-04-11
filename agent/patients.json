@@ -36,7 +36,13 @@
       "formula": "Alan Blue",
       "complementary_rate": 1.0,
       "teleconsultation_included": true
-    }
+    },
+    "nearby_doctors": [
+      {"name": "Dr. Marie Lavigne", "specialty": "Généraliste", "distance": "73m", "sector": "Secteur 1"},
+      {"name": "Dr. Arnaud Cocaul", "specialty": "Généraliste", "distance": "73m", "sector": "Secteur 1"},
+      {"name": "Dr. Philippe Renard", "specialty": "Chirurgien orthopédiste", "distance": "450m", "sector": "Secteur 2"},
+      {"name": "Cabinet Mouvement", "specialty": "Kinésithérapeute", "distance": "320m", "sector": "Conventionné"}
+    ]
   },
   "marc_dubois": {
     "patient_id": "marc_dubois",
@@ -82,7 +88,12 @@
       "formula": "Alan Green",
       "complementary_rate": 0.8,
       "teleconsultation_included": true
-    }
+    },
+    "nearby_doctors": [
+      {"name": "Dr. Laurent Moreau", "specialty": "Endocrinologue", "distance": "1.2km", "sector": "Secteur 1"},
+      {"name": "Dr. Sophie Vidal", "specialty": "Généraliste", "distance": "200m", "sector": "Secteur 1"},
+      {"name": "Laboratoire Biolyss", "specialty": "Analyses médicales", "distance": "350m", "sector": "Conventionné"}
+    ]
   },
   "lea_chen": {
     "patient_id": "lea_chen",
@@ -121,6 +132,11 @@
       "formula": "Alan Blue",
       "complementary_rate": 1.0,
       "teleconsultation_included": true
-    }
+    },
+    "nearby_doctors": [
+      {"name": "Dr. Marie Lefevre", "specialty": "Gynécologue-obstétricienne", "distance": "800m", "sector": "Secteur 1"},
+      {"name": "Dr. Anne Petit", "specialty": "Sage-femme", "distance": "250m", "sector": "Conventionnée"},
+      {"name": "Dr. Thomas Roux", "specialty": "Généraliste", "distance": "150m", "sector": "Secteur 1"}
+    ]
   }
 }

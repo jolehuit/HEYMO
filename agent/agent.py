@@ -123,22 +123,18 @@ class AlanHealthAgent(Agent):
             procedure: The medical procedure to look up, e.g. 'specialist_consultation',
                       'physiotherapy', 'blood_test', 'ultrasound', 'mri'
         """
-        # Dev2: Real Linkup API integration done in tools.py (with mock fallback)
+        # Send CTA immediately so it appears on screen fast
+        label = f"Remboursement {procedure}" if self._lang == "fr" else f"Reimbursement — {procedure}"
+        await self._send_cta("reimbursement", label, {
+            "description": "Calcul en cours..." if self._lang == "fr" else "Calculating...",
+        })
         from tools import get_reimbursement_info
         result = await get_reimbursement_info(procedure, self._patient)
         self._reimbursement_discussed = result
-        # Build rich CTA with actual figures
-        price = result.get("average_price", "?")
-        secu = result.get("secu_reimbursement", "?")
-        alan = result.get("alan_reimbursement", "?")
+        # Update CTA with real figures
         oop = result.get("out_of_pocket", "?")
-        if self._lang == "fr":
-            label = f"Remboursement {procedure}"
-            desc = f"Prix moyen : {price}€ · Sécu : {secu}€ · Alan : {alan}€ · Reste à charge : {oop}€"
-        else:
-            label = f"Reimbursement for {procedure}"
-            desc = f"Avg. price: {price}€ · Social security: {secu}€ · Alan: {alan}€ · Out of pocket: {oop}€"
-        await self._send_cta("reimbursement", label, {**result, "description": desc})
+        desc = f"Reste à charge : {oop}€" if self._lang == "fr" else f"Out of pocket: {oop}€"
+        await self._send_cta("reimbursement", label, {"description": desc})
         return json.dumps(result, indent=2)
 
     @function_tool
@@ -193,16 +189,8 @@ class AlanHealthAgent(Agent):
             "description": description,
             "scheduled_date": scheduled_date,
         })
-        if self._lang == "fr":
-            label = f"Rendez-vous le {scheduled_date}"
-            desc = description
-        else:
-            label = f"Appointment on {scheduled_date}"
-            desc = description
-        await self._send_cta("appointment", label, {
-            "date": scheduled_date,
-            "description": desc,
-        })
+        label = f"RDV {scheduled_date}" if self._lang == "fr" else f"Appt. {scheduled_date}"
+        await self._send_cta("appointment", label, {"description": description})
         return f"Follow-up scheduled for {scheduled_date}: {description}"
 
     @function_tool
@@ -256,6 +244,12 @@ class AlanHealthAgent(Agent):
                       'endocrinologist', 'gynecologist', 'physiotherapist'
         """
         location = self._patient.get("location", "Paris")
+        # Send CTA immediately so it appears on screen fast
+        label = f"{specialty} — {location}" if self._lang == "fr" else f"{specialty} — {location}"
+        await self._send_cta("provider", label, {
+            "description": "Recherche en cours..." if self._lang == "fr" else "Searching...",
+        })
+
         linkup_api_key = os.environ.get("LINKUP_API_KEY")
         if linkup_api_key:
             try:
@@ -272,33 +266,18 @@ class AlanHealthAgent(Agent):
                     "type": "provider_search",
                     "description": f"Searched for {specialty} in {location}",
                 })
-                answer_preview = result.answer[:200] if result.answer else ""
-                if self._lang == "fr":
-                    label = f"{specialty} près de {location}"
-                else:
-                    label = f"{specialty} near {location}"
+                # Update CTA with short result (no raw URLs)
                 await self._send_cta("provider", label, {
-                    "specialty": specialty,
-                    "location": location,
-                    "result": result.answer,
-                    "description": answer_preview,
+                    "description": f"{specialty} · {location}",
                 })
                 return f"Search results for {specialty} in {location}:\n{result.answer}"
             except Exception as e:
                 logger.warning(f"Linkup provider search error: {e}")
 
-        if self._lang == "fr":
-            label = f"{specialty} près de {location}"
-            desc = f"Recherche de {specialty} à {location}"
-        else:
-            label = f"{specialty} near {location}"
-            desc = f"Searching for {specialty} in {location}"
         await self._send_cta("provider", label, {
-            "specialty": specialty,
-            "location": location,
-            "description": desc,
+            "description": f"{specialty} · {location}",
         })
-        return f"I can help you find a {specialty} in {location}. You can find practitioners near you in the Alan app via Alan Map."
+        return f"I can help you find a {specialty} in {location}. You can find practitioners near you via Alan Map."
 
     @function_tool
     async def request_teleconsultation(self, context: RunContext) -> str:
@@ -316,14 +295,11 @@ class AlanHealthAgent(Agent):
         plan = self._patient['contract']['formula']
         if self._lang == "fr":
             label = "Téléconsultation"
-            desc = f"Un médecin va vous contacter sous 30 min · Inclus dans votre contrat {plan}"
+            desc = f"Médecin sous 30 min · Inclus {plan}"
         else:
             label = "Teleconsultation"
-            desc = f"A doctor will contact you within 30 min · Included in your {plan} plan"
-        await self._send_cta("teleconsultation", label, {
-            "patient_id": self._patient["patient_id"],
-            "description": desc,
-        })
+            desc = f"Doctor within 30 min · Included in {plan}"
+        await self._send_cta("teleconsultation", label, {"description": desc})
         return f"I've requested a teleconsultation for you. A doctor from Alan's network will call you within the next 30 minutes. It's fully covered by your {self._patient['contract']['formula']} plan."
 
     @function_tool
@@ -350,11 +326,11 @@ class AlanHealthAgent(Agent):
 
         call_context = "\n".join(transcript_lines[-10:])
         if self._lang == "fr":
-            label = "Mise en relation avec un médecin"
-            desc = f"Motif : {reason} · Le médecin aura le contexte complet de votre appel"
+            label = "Mise en relation médecin"
+            desc = reason
         else:
-            label = "Connect with a doctor"
-            desc = f"Reason: {reason} · The doctor will have your full call context"
+            label = "Connect with doctor"
+            desc = reason
         await self._send_cta("doctor_connect", label, {
             "patient_id": self._patient["patient_id"],
             "patient_name": self._patient["name"],
