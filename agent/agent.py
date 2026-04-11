@@ -264,9 +264,11 @@ class AlanHealthAgent(Agent):
         location = self._patient.get("location", "Paris")
         cta_id = f"provider-{specialty}"
 
-        # Loading CTA
-        loading_label = f"Recherche {specialty}..." if self._lang == "fr" else f"Searching {specialty}..."
-        await self._send_cta("provider", loading_label, {"description": "..."}, cta_id=cta_id)
+        label = f"{specialty} — {location}"
+        await self._send_cta("provider", label, {
+            "description": "Recherche..." if self._lang == "fr" else "Searching...",
+            "loading": True,
+        }, cta_id=cta_id)
 
         linkup_api_key = os.environ.get("LINKUP_API_KEY")
         if linkup_api_key:
@@ -274,7 +276,10 @@ class AlanHealthAgent(Agent):
                 from linkup import LinkupClient
                 import re
                 client = LinkupClient()
-                query = f"{specialty} {location} nom adresse exacte numéro téléphone horaires"
+                if self._lang == "fr":
+                    query = f"{specialty} {location} nom adresse exacte numéro téléphone"
+                else:
+                    query = f"{specialty} near {location} name exact address phone number"
                 result = await client.async_search(
                     query=query, depth="standard",
                     output_type="sourcedAnswer", timeout=10.0,
@@ -303,6 +308,7 @@ class AlanHealthAgent(Agent):
                     "specialty": specialty,
                     "location": location,
                     "description": " · ".join(desc_parts),
+                    "show_map": True,
                 }, cta_id=cta_id)
                 # Tell the LLM to speak in the right language
                 return (
