@@ -176,6 +176,7 @@ class AlanHealthAgent(Agent):
             "name": self._patient["name"],
             "age": self._patient["age"],
             "plan": self._patient["plan"],
+            "location": self._patient.get("location", "unknown"),
             "recent_event": self._patient["recent_event"],
             "medications": self._patient["medications"],
             "contract": self._patient["contract"],
@@ -187,7 +188,6 @@ class AlanHealthAgent(Agent):
         self,
         context: RunContext,
         specialty: str,
-        location: str = "Paris",
     ) -> str:
         """Search for a nearby healthcare provider or specialist.
         Use this when the patient needs to book an appointment and wants
@@ -196,8 +196,8 @@ class AlanHealthAgent(Agent):
         Args:
             specialty: The type of provider, e.g. 'orthopedic surgeon',
                       'endocrinologist', 'gynecologist', 'physiotherapist'
-            location: City or area to search in, defaults to Paris
         """
+        location = self._patient.get("location", "Paris")
         import os
         linkup_api_key = os.environ.get("LINKUP_API_KEY")
         if linkup_api_key:
