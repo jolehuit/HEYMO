@@ -182,6 +182,60 @@ class AlanHealthAgent(Agent):
         }
         return json.dumps(safe_patient, indent=2)
 
+    @function_tool
+    async def find_nearby_provider(
+        self,
+        context: RunContext,
+        specialty: str,
+        location: str = "Paris",
+    ) -> str:
+        """Search for a nearby healthcare provider or specialist.
+        Use this when the patient needs to book an appointment and wants
+        help finding a doctor, specialist, or clinic.
+
+        Args:
+            specialty: The type of provider, e.g. 'orthopedic surgeon',
+                      'endocrinologist', 'gynecologist', 'physiotherapist'
+            location: City or area to search in, defaults to Paris
+        """
+        import os
+        linkup_api_key = os.environ.get("LINKUP_API_KEY")
+        if linkup_api_key:
+            try:
+                from linkup import LinkupClient
+                client = LinkupClient()
+                query = f"{specialty} conventionné secteur 1 {location} prendre rendez-vous"
+                result = await client.async_search(
+                    query=query,
+                    depth="standard",
+                    output_type="sourcedAnswer",
+                    timeout=10.0,
+                )
+                self._actions.append({
+                    "type": "provider_search",
+                    "description": f"Searched for {specialty} in {location}",
+                })
+                return f"Search results for {specialty} in {location}:\n{result.answer}"
+            except Exception as e:
+                logger.warning(f"Linkup provider search error: {e}")
+
+        return f"I can help you find a {specialty} in {location}. I recommend checking Doctolib.fr or calling Alan's concierge service for an appointment."
+
+    @function_tool
+    async def request_teleconsultation(self, context: RunContext) -> str:
+        """Request an Alan teleconsultation for the patient.
+        Use this when the patient has concerning symptoms that need
+        medical attention but are not an emergency, or when they
+        want to speak to a doctor quickly."""
+        if not self._patient["contract"].get("teleconsultation_included"):
+            return "Unfortunately, teleconsultation is not included in your current Alan plan."
+
+        self._actions.append({
+            "type": "teleconsultation_requested",
+            "description": f"Teleconsultation requested for {self._patient['name']}",
+        })
+        return f"I've requested a teleconsultation for you. A doctor from Alan's network will call you within the next 30 minutes. It's fully covered by your {self._patient['contract']['formula']} plan."
+
 
 # ==========================================================================
 # POST-CALL SUMMARY (Dev 1)
