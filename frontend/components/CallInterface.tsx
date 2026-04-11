@@ -29,9 +29,10 @@ import { AlertTriangleIcon, MicIcon, PhoneIcon } from "./AlanIcons";
 interface CallInterfaceProps {
   patient: PatientProfile;
   onBack: () => void;
+  onSummaryGenerated?: (summary: CallSummary) => void;
 }
 
-export default function CallInterface({ patient, onBack }: CallInterfaceProps) {
+export default function CallInterface({ patient, onBack, onSummaryGenerated }: CallInterfaceProps) {
   const { t, locale } = useTranslation();
   const [token, setToken] = useState<string | null>(null);
   const [url, setUrl] = useState<string | null>(null);
@@ -81,6 +82,7 @@ export default function CallInterface({ patient, onBack }: CallInterfaceProps) {
       if (res.ok) {
         const { summary: data } = await res.json();
         setSummary(data);
+        onSummaryGenerated?.(data);
       }
     } catch { /* fallback: no summary */ }
     setCallPhase("done");
