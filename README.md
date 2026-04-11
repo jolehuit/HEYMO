@@ -1,4 +1,4 @@
-# Alan Care Call
+# HeyMo
 
 Proactive voice AI agent that calls Alan health insurance members after a medical event (surgery, consultation, pregnancy check-up) to check on them, verify medication compliance, discuss wearable health data, and provide reimbursement info.
 
