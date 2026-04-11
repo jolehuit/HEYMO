@@ -2,7 +2,7 @@
 Maude — Voice AI Agent for Alan health follow-up calls
 
 Run locally:  uv run agent.py dev
-Deploy:       lk agent create --secrets MISTRAL_API_KEY=xxx,LINKUP_API_KEY=xxx
+Deploy:       lk agent create --secrets MISTRAL_API_KEY=xxx,ELEVEN_API_KEY=xxx,LINKUP_API_KEY=xxx
 """
 
 import asyncio
@@ -40,7 +40,7 @@ from livekit.agents import (
     function_tool,
 )
 from livekit.agents import room_io
-from livekit.plugins import lemonslice, mistralai, silero
+from livekit.plugins import elevenlabs, lemonslice, mistralai, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 # Avatar image — hosted in the repo (frontend/public/maude.png)
@@ -343,11 +343,18 @@ async def entrypoint(ctx: JobContext):
     agent._room = ctx.room
 
     # --- Configure voice pipeline ---
-    tts_voice = "fr_marie_neutral" if lang == "fr" else "gb_jane_confident"
+    # ElevenLabs TTS — much better voice quality than Voxtral
+    # FR: Lucie (empathetic customer care voice)
+    # EN: Rachel (warm, natural)
+    tts_voice_id = "YxrwjAKoUKULGd0g8K9Y" if lang == "fr" else "21m00Tcm4TlvDq8ikWAM"
     session = AgentSession(
         stt=mistralai.STT(model="voxtral-mini-transcribe-realtime-2602"),
         llm=mistralai.LLM(model="mistral-small-latest"),
-        tts=mistralai.TTS(voice=tts_voice),
+        tts=elevenlabs.TTS(
+            voice_id=tts_voice_id,
+            model="eleven_turbo_v2_5",
+            language=lang,
+        ),
         vad=ctx.proc.userdata["vad"],
         turn_detection=MultilingualModel(),
         allow_interruptions=False,
