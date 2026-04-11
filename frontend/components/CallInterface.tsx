@@ -386,23 +386,14 @@ function ActiveCallPhone({
               </button>
               {isExpanded && (
                 <div className="bg-white border border-[#F0F0FF] rounded-b-[12px] px-3 py-2.5 -mt-1 space-y-1.5">
-                  {/* Show ALL data fields from the agent */}
-                  {Object.entries(data).map(([key, val]) => {
-                    if (!val || key === "patient_id") return null;
-                    const label = key.replace(/_/g, " ");
-                    const value = typeof val === "object" ? JSON.stringify(val) : String(val);
-                    // Long text (result from Linkup search)
-                    if (value.length > 80) {
-                      return <p key={key} className="text-[10px] text-[#3C3C43] leading-relaxed">{value.slice(0, 300)}{value.length > 300 ? "..." : ""}</p>;
-                    }
-                    // Key-value pairs
-                    return (
-                      <div key={key} className="flex items-center justify-between">
-                        <span className="text-[9px] text-[#8E8E93] capitalize">{label}</span>
-                        <span className="text-[10px] font-semibold text-[#282830]">{value}</span>
-                      </div>
-                    );
-                  })}
+                  {/* Rich description from agent (already localized) */}
+                  {data.description ? (
+                    <p className="text-[10px] text-[#3C3C43] leading-relaxed">{String(data.description)}</p>
+                  ) : null}
+                  {/* Provider: show search result preview */}
+                  {cta.action === "provider" && data.result ? (
+                    <p className="text-[10px] text-[#3C3C43] leading-relaxed">{String(data.result).slice(0, 250)}</p>
+                  ) : null}
                 </div>
               )}
             </div>
