@@ -12,6 +12,7 @@ Grep all tasks:  grep -rn "TODO" agent/
 
 import json
 import logging
+import os
 from datetime import datetime
 
 from livekit.agents import (
@@ -235,6 +236,141 @@ class AlanHealthAgent(Agent):
             "description": f"Teleconsultation requested for {self._patient['name']}",
         })
         return f"I've requested a teleconsultation for you. A doctor from Alan's network will call you within the next 30 minutes. It's fully covered by your {self._patient['contract']['formula']} plan."
+
+    # ------------------------------------------------------------------
+    # LINKUP HELPER (Dev 2)
+    # ------------------------------------------------------------------
+
+    async def _linkup_search(self, query: str, fallback: str) -> str:
+        """Helper: search Linkup API with fallback string."""
+        linkup_api_key = os.environ.get("LINKUP_API_KEY")
+        if linkup_api_key:
+            try:
+                from linkup import LinkupClient
+                client = LinkupClient()
+                result = await client.async_search(
+                    query=query, depth="standard",
+                    output_type="sourcedAnswer", timeout=10.0,
+                )
+                return result.answer
+            except Exception as e:
+                logger.warning(f"Linkup search error: {e}")
+        return fallback
+
+    # ------------------------------------------------------------------
+    # LINKUP-POWERED TOOLS (Dev 2)
+    # ------------------------------------------------------------------
+
+    @function_tool
+    async def get_side_effects(
+        self,
+        context: RunContext,
+        medication_name: str,
+    ) -> str:
+        """Look up common and serious side effects for a medication.
+        Use when the patient asks about side effects or reports unusual symptoms.
+
+        Args:
+            medication_name: Name of the medication, e.g. 'Metformin', 'Ketoprofen', 'Lovenox'
+        """
+        # Build fallback from patient's known meds
+        fallback_effects = []
+        for med in self._patient.get("medications", []):
+            if medication_name.lower() in med["name"].lower():
+                fallback_effects = med.get("side_effects_common", [])
+                break
+        fallback = f"Common side effects of {medication_name}: {', '.join(fallback_effects)}" if fallback_effects else f"Please consult your pharmacist about {medication_name} side effects."
+
+        query = f"effets secondaires {medication_name} fréquents graves liste"
+        return await self._linkup_search(query, fallback)
+
+    @function_tool
+    async def check_drug_interactions(
+        self,
+        context: RunContext,
+        medication_1: str,
+        medication_2: str,
+    ) -> str:
+        """Check for known interactions between two medications.
+        Use when the patient takes multiple medications and asks about safety.
+
+        Args:
+            medication_1: First medication name
+            medication_2: Second medication name
+        """
+        query = f"interaction médicamenteuse {medication_1} {medication_2} risques précautions"
+        fallback = f"I don't have specific interaction data for {medication_1} and {medication_2}. Please consult your pharmacist or doctor to verify there are no contraindications."
+        return await self._linkup_search(query, fallback)
+
+    @function_tool
+    async def get_procedure_price(
+        self,
+        context: RunContext,
+        procedure: str,
+    ) -> str:
+        """Get the average price for a medical procedure in the patient's area.
+        Use when the patient asks how much something costs before reimbursement.
+
+        Args:
+            procedure: The procedure, e.g. 'IRM genou', 'consultation dermatologue', 'échographie'
+        """
+        location = self._patient.get("location", "Paris")
+        query = f"prix moyen {procedure} {location} tarif 2025"
+        fallback = f"Average prices for {procedure} vary. Contact your provider for an exact quote, or I can look up the reimbursement details."
+        return await self._linkup_search(query, fallback)
+
+    @function_tool
+    async def get_condition_info(
+        self,
+        context: RunContext,
+        condition: str,
+    ) -> str:
+        """Get health information about a medical condition, recovery tips, or post-surgery care.
+        Use when the patient asks about their condition, recovery timeline, or what to expect.
+
+        Args:
+            condition: The condition or topic, e.g. 'arthroscopy knee recovery',
+                      'type 2 diabetes management', 'pregnancy second trimester'
+        """
+        query = f"{condition} conseils récupération patient recommandations"
+        fallback = f"For specific advice on {condition}, I recommend discussing with your doctor at your next follow-up."
+        return await self._linkup_search(query, fallback)
+
+    @function_tool
+    async def get_alan_coverage_details(
+        self,
+        context: RunContext,
+        topic: str,
+    ) -> str:
+        """Look up details about the patient's Alan insurance coverage for a specific topic.
+        Use when the patient asks what their Alan plan covers.
+
+        Args:
+            topic: The coverage topic, e.g. 'dental', 'optical', 'hospitalization',
+                  'maternity', 'teleconsultation', 'mental health'
+        """
+        plan_name = self._patient["contract"]["formula"]
+        query = f"Alan assurance {plan_name} garanties {topic} couverture 2025"
+        fallback_info = json.dumps(self._patient["contract"], indent=2)
+        fallback = f"Here's what I know about your {plan_name} plan:\n{fallback_info}\nFor detailed coverage on {topic}, check the Alan app or contact Alan support."
+        return await self._linkup_search(query, fallback)
+
+    @function_tool
+    async def search_health_info(
+        self,
+        context: RunContext,
+        query: str,
+    ) -> str:
+        """Search the web for health, medical, or insurance information.
+        Use this as a LAST RESORT when no other tool can answer the patient's question.
+        Examples: sick leave duration, vaccination schedules, administrative procedures,
+        health regulations, or any medical topic not covered by other tools.
+
+        Args:
+            query: The search query in natural language, e.g. 'durée arrêt maladie après arthroscopie genou'
+        """
+        fallback = f"I couldn't find specific information about '{query}'. I recommend checking with your doctor or the Alan app for more details."
+        return await self._linkup_search(query, fallback)
 
 
 # ==========================================================================
