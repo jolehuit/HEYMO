@@ -87,3 +87,9 @@ body {
 .alert-green { background: var(--alan-teal-50); color: var(--alan-teal-700); border: 1px solid var(--alan-teal-300); }
 .alert-orange { background: var(--alan-orange-50); color: var(--alan-orange-900); border: 1px solid var(--alan-orange-300); }
 .alert-red { background: #FFEAEA; color: var(--alan-orange-900); border: 1px solid #FFC2C2; }
+
+/* Animations */
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}

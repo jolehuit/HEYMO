@@ -43,7 +43,7 @@ export interface MetricData {
 }
 
 export interface Action {
-  type: "appointment" | "followup_call" | "flag";
+  type: "appointment" | "followup_call" | "flag" | "sms_sent";
   description: string;
   status?: string;
   sms_sent?: boolean;
