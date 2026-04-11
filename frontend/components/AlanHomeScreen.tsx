@@ -115,7 +115,7 @@ export default function AlanHomeScreen({ patient, onIncomingCall, lastSummary }:
                   <div className="relative z-10 mb-1">
                     <Image src="/maude.png" alt="Maude" width={100} height={100} style={{ width: 100, height: "auto" }} className="drop-shadow-lg" />
                   </div>
-                  <p className="text-[22px] font-bold text-[#282830] mt-1">{isFr ? "0 berries aujourd'hui" : "0 berries today"}</p>
+                  <p className="text-[22px] font-bold text-[#282830] mt-1">{isFr ? "567 berries aujourd'hui" : "567 berries today"}</p>
                   <p className="text-[13px] text-[#6B5C3E]/60 mt-0.5">3 177 {isFr ? "pas" : "steps"}</p>
                 </div>
               </div>
